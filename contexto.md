@@ -59,3 +59,27 @@ El prompt en `gemini.ts` está entrenado con reglas específicas de natación:
 - **Evitar reintroducir dependencias obsoletas**: No uses `config` con `api: { bodyParser: false }` en las API routes bajo Next.js App Router (provoca warnings en el build y es innecesario, la API nativa de NextRequest maneja formData sin problemas).
 - **Modelo de Gemini**: Utiliza siempre un modelo compatible y disponible. A fecha de 2026, `gemini-3.5-flash` es el modelo activo por defecto en la aplicación y soporta audio nativo en español.
 - **Formato de datos**: Cualquier adición de columnas a Google Sheets requiere sincronizar las cabeceras en `ensurePersonSheet()` y en la estructura de `TrainingData` en `sheets.ts`, además del formulario editable en `TrainingPreview.tsx`.
+
+---
+
+## 🔮 Roadmap de Escalabilidad (Decisiones Grill-Me)
+
+### 1. Gestión de Marcas Personales (PBs)
+- **Base de datos**: Se creará una pestaña central en Google Sheets llamada **`Marcas`**.
+- **Estructura**: `Nombre | Estilo | Distancia | Tiempo | Fecha`
+- **Uso**: La app leerá esta pestaña al cargar el Dashboard de un nadador para obtener sus mejores registros históricos.
+
+### 2. Estandarización de Zonas de Ritmo e Intensidad
+- Las zonas se calculan **dinámicamente** mediante porcentajes sobre la mejor marca de 100m (o distancia equivalente):
+  - **Aeróbico**: +15% a +20% del PB
+  - **Umbral**: +8% a +10% del PB
+  - **Velocidad**: 100% o menos del PB
+  - **Anaeróbico**: Ritmos de lactato (entre velocidad y umbral)
+- La app traducirá los tiempos medios de los bloques principales a porcentajes para clasificar de forma exacta la zona de entrenamiento real.
+
+### 3. Dashboard Público Interactivo (Visualización)
+- **Librería**: Uso de **Recharts** para renderizar gráficos SVG interactivos y fluidos con estilos de cristal (glassmorphism).
+- **Acceso**: Botón de "Estadísticas" en la cabecera, de acceso público. El usuario selecciona su nombre y ve sus gráficos personalizados.
+- **Agrupamiento de Datos**: Los entrenamientos del bloque principal se agruparán en los gráficos por **Estilo + Tipo de trabajo** (ej: Ritmo de 100, Ritmo de 200, Anaeróbico, Velocidad) en función de los ritmos definidos.
+- **Objetivo del gráfico**: Mostrar una línea temporal del progreso de las marcas medias en ese bloque de trabajo (por ejemplo, si en Ritmo de 100 crol las medias del nadador bajan a lo largo de las semanas).
+
