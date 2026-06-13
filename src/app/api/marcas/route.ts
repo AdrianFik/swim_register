@@ -21,16 +21,16 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { nombre, estilo, distancia, tiempo, fecha } = body;
+    const { nombre, estilo, distancia, tiempo, fecha, piscina } = body;
 
-    if (!nombre || !estilo || !distancia || !tiempo || !fecha) {
+    if (!nombre || !estilo || !distancia || !tiempo || !fecha || !piscina) {
       return NextResponse.json(
-        { error: "Faltan campos obligatorios: nombre, estilo, distancia, tiempo, fecha" },
+        { error: "Faltan campos obligatorios: nombre, estilo, distancia, tiempo, fecha, piscina" },
         { status: 400 }
       );
     }
 
-    await addOrUpdateMarca(nombre, estilo, Number(distancia), tiempo, fecha);
+    await addOrUpdateMarca(nombre, estilo, Number(distancia), tiempo, fecha, piscina);
 
     return NextResponse.json({ success: true });
   } catch (error) {

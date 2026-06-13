@@ -23,6 +23,7 @@ interface TrainingData {
   material: string;
   pulso: string;
   notas: string;
+  piscina: string;
 }
 
 type Step = "select" | "record" | "preview";

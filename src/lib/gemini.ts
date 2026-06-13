@@ -46,9 +46,11 @@ Reglas específicas de extracción y formateo:
 
 8. notas: string (cualquier otro comentario o sensación).
 
+9. piscina: string (valores permitidos: "25m" o "50m"). Si se menciona piscina corta o de 25m, o en la de 25, extrae "25m". Si se menciona piscina larga o de 50m, o en larga o en la de 50, extrae "50m". Si no se menciona de ninguna forma, devuelve por defecto "25m".
+
 IMPORTANTE:
 - Responde ÚNICAMENTE con el JSON, sin markdown, sin backticks, sin explicaciones.
-- Si un campo no se menciona en el audio, devuelve una cadena vacía "" (a excepción de material que debe ser "Sin material").
+- Si un campo no se menciona en el audio, devuelve una cadena vacía "" (a excepción de material que debe ser "Sin material" y piscina que debe ser "25m").
 - Responde siempre en español.`;
 
 /**
@@ -99,6 +101,7 @@ export async function processAudio(
       material: parsed.material || "",
       pulso: parsed.pulso || "",
       notas: parsed.notas || "",
+      piscina: (parsed as any).piscina || "25m",
     };
   } catch {
     // Si falla el parseo, devolver los datos con la respuesta en notas
@@ -111,6 +114,7 @@ export async function processAudio(
       material: "",
       pulso: "",
       notas: `[Error al procesar] ${responseText}`,
+      piscina: "25m",
     };
   }
 }

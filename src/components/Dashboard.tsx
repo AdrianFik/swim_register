@@ -7,6 +7,7 @@ import {
   extractAverageSeconds,
   normalizeStyle,
   formatSeconds,
+  getConversionFactor100m,
 } from "@/lib/zones";
 import {
   LineChart,
@@ -37,6 +38,7 @@ interface TrainingData {
   material: string;
   pulso: string;
   notas: string;
+  piscina: string;
 }
 
 interface DashboardProps {
@@ -115,11 +117,18 @@ export default function Dashboard({ person }: DashboardProps) {
     fetchTrainings(selectedSwimmerName);
   }, [selectedSwimmerName, fetchTrainings]);
 
-  // Procesar entrenamientos para el gráfico de línea
+  // Procesar entrenamientos para el gráfico de línea (unificado a piscina de 25m)
   const chartData = useMemo(() => {
     if (trainings.length === 0) return [];
 
-    const dataPoints: { dateStr: string; dateVal: Date; seconds: number }[] = [];
+    const dataPoints: {
+      dateStr: string;
+      dateVal: Date;
+      seconds: number;
+      originalSeconds: number;
+      pool: string;
+      conversionOffset: number;
+    }[] = [];
 
     for (const t of trainings) {
       if (!t.fecha || !t.series || !t.tiempos) continue;
@@ -127,13 +136,26 @@ export default function Dashboard({ person }: DashboardProps) {
       const style = normalizeStyle(t.estilos);
       const distance = extractDistance(t.series);
       const avgSecs = extractAverageSeconds(t.tiempos);
+      const pool = (t.piscina || "25m").trim().toLowerCase();
 
       // Si coincide con los filtros
       if (style === selectedStyle && distance === selectedDistance && avgSecs !== null) {
+        let convertedSecs = avgSecs;
+        let offset = 0;
+
+        if (pool === "50m") {
+          const factor100m = getConversionFactor100m(style);
+          offset = factor100m * (distance / 100);
+          convertedSecs = avgSecs - offset; // Restar segundos para obtener equivalencia en 25m (más rápida)
+        }
+
         dataPoints.push({
           dateStr: t.fecha,
           dateVal: new Date(t.fecha),
-          seconds: Math.round(avgSecs * 100) / 100,
+          seconds: Math.round(convertedSecs * 100) / 100,
+          originalSeconds: Math.round(avgSecs * 100) / 100,
+          pool: pool,
+          conversionOffset: Math.round(offset * 100) / 100,
         });
       }
     }
@@ -144,6 +166,9 @@ export default function Dashboard({ person }: DashboardProps) {
       .map((dp) => ({
         date: dp.dateStr,
         seconds: dp.seconds,
+        originalSeconds: dp.originalSeconds,
+        pool: dp.pool,
+        offset: dp.conversionOffset,
       }));
   }, [trainings, selectedStyle, selectedDistance]);
 
@@ -343,7 +368,17 @@ export default function Dashboard({ person }: DashboardProps) {
                         labelStyle={{ color: "#94a3b8", fontWeight: 600, marginBottom: "4px" }}
                         itemStyle={{ color: "#38bdf8" }}
                         labelFormatter={(label) => `Fecha: ${label}`}
-                        formatter={(value: any) => [value ? formatSeconds(Number(value)) : "", "Tiempo Medio"]}
+                        formatter={(value: any, name: any, props: any) => {
+                          const payload = props.payload;
+                          const formattedTime = formatSeconds(Number(value));
+                          if (payload && payload.pool === "50m") {
+                            return [
+                              `${formattedTime} (Original: ${formatSeconds(payload.originalSeconds)} en 50m, conv: -${payload.offset}s)`,
+                              "Tiempo Medio (Equiv. 25m)"
+                            ];
+                          }
+                          return [formattedTime, "Tiempo Medio"];
+                        }}
                       />
                       <Line
                         type="monotone"

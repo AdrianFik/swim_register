@@ -14,6 +14,7 @@ interface TrainingData {
   material: string;
   pulso: string;
   notas: string;
+  piscina: string;
 }
 
 interface TrainingPreviewProps {
@@ -38,6 +39,12 @@ const FIELDS: {
     icon: "📅",
     placeholder: "YYYY-MM-DD",
     type: "date",
+  },
+  {
+    key: "piscina",
+    label: "Piscina",
+    icon: "🏢",
+    placeholder: "25m o 50m",
   },
   {
     key: "series",
@@ -117,7 +124,7 @@ export default function TrainingPreview({
     loadPbs();
   }, [personName]);
 
-  // Autocalcular zona en tiempo real cuando cambian series, tiempos o estilo
+  // Autocalcular zona en tiempo real cuando cambian series, tiempos, estilo o piscina
   useEffect(() => {
     if (pbs.length === 0 || !formData.series || !formData.tiempos) {
       setCalcZoneInfo(null);
@@ -128,7 +135,8 @@ export default function TrainingPreview({
       formData.series,
       formData.tiempos,
       formData.estilos,
-      pbs
+      pbs,
+      formData.piscina
     );
 
     if (result) {
@@ -137,12 +145,12 @@ export default function TrainingPreview({
         intensidad: result.zone,
       }));
       setCalcZoneInfo(
-        `Calculado: ${result.zone} (${result.percentage}% vel. ref. PB de ${result.pbUsed.distancia}m ${result.pbUsed.estilo}${result.scaled ? " extrapolado" : ""})`
+        `Calculado: ${result.zone} (${result.percentage}% vel. ref. PB de ${result.pbUsed.distancia}m ${result.pbUsed.estilo}${result.scaled ? " extrapolado" : ""}${result.pbConverted ? ` conv. de ${result.pbUsed.piscina}` : ""})`
       );
     } else {
       setCalcZoneInfo(null);
     }
-  }, [formData.series, formData.tiempos, formData.estilos, pbs]);
+  }, [formData.series, formData.tiempos, formData.estilos, formData.piscina, pbs]);
 
   const updateField = (key: keyof TrainingData, value: string) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -229,7 +237,17 @@ export default function TrainingPreview({
               <span className={styles.fieldIcon}>{field.icon}</span>
               {field.label}
             </label>
-            {field.type === "date" ? (
+            {field.key === "piscina" ? (
+              <select
+                id={`field-${field.key}`}
+                className={styles.fieldSelect}
+                value={formData[field.key]}
+                onChange={(e) => updateField(field.key, e.target.value)}
+              >
+                <option value="25m">Piscina Corta (25m)</option>
+                <option value="50m">Piscina Larga (50m)</option>
+              </select>
+            ) : field.type === "date" ? (
               <input
                 id={`field-${field.key}`}
                 type="date"

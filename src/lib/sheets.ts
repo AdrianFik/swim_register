@@ -81,7 +81,35 @@ async function ensurePersonSheet(personName: string): Promise<void> {
   const sheetNames =
     spreadsheet.data.sheets?.map((s) => s.properties?.title) || [];
 
-  if (sheetNames.includes(personName)) return;
+  const headers = [
+    "Fecha",
+    "Series",
+    "Estilos",
+    "Tiempos",
+    "Intensidad",
+    "Material",
+    "Pulso",
+    "Notas",
+    "Piscina",
+  ];
+
+  if (sheetNames.includes(personName)) {
+    // Verificar si falta la columna Piscina y migrar
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${personName}!A1:I1`,
+    });
+    const currentHeaders = response.data.values?.[0] || [];
+    if (!currentHeaders.includes("Piscina")) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${personName}!A1:I1`,
+        valueInputOption: "RAW",
+        requestBody: { values: [headers] },
+      });
+    }
+    return;
+  }
 
   // Crear nueva pestaña
   await sheets.spreadsheets.batchUpdate({
@@ -97,21 +125,9 @@ async function ensurePersonSheet(personName: string): Promise<void> {
     },
   });
 
-  // Añadir headers
-  const headers = [
-    "Fecha",
-    "Series",
-    "Estilos",
-    "Tiempos",
-    "Intensidad",
-    "Material",
-    "Pulso",
-    "Notas",
-  ];
-
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `${personName}!A1:H1`,
+    range: `${personName}!A1:I1`,
     valueInputOption: "RAW",
     requestBody: { values: [headers] },
   });
@@ -126,6 +142,7 @@ export interface TrainingData {
   material: string;
   pulso: string;
   notas: string;
+  piscina: string;
 }
 
 export interface PersonalBest {
@@ -134,6 +151,7 @@ export interface PersonalBest {
   distancia: number;
   tiempo: string;
   fecha: string;
+  piscina: string;
 }
 
 /**
@@ -147,7 +165,25 @@ async function ensureMarcasSheet(): Promise<void> {
   const sheetNames =
     spreadsheet.data.sheets?.map((s) => s.properties?.title) || [];
 
-  if (sheetNames.includes("Marcas")) return;
+  const headers = ["Nombre", "Estilo", "Distancia", "Tiempo", "Fecha", "Piscina"];
+
+  if (sheetNames.includes("Marcas")) {
+    // Verificar si falta la columna Piscina y migrar
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: "Marcas!A1:F1",
+    });
+    const currentHeaders = response.data.values?.[0] || [];
+    if (!currentHeaders.includes("Piscina")) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: "Marcas!A1:F1",
+        valueInputOption: "RAW",
+        requestBody: { values: [headers] },
+      });
+    }
+    return;
+  }
 
   // Crear la pestaña
   await sheets.spreadsheets.batchUpdate({
@@ -163,11 +199,9 @@ async function ensureMarcasSheet(): Promise<void> {
     },
   });
 
-  const headers = ["Nombre", "Estilo", "Distancia", "Tiempo", "Fecha"];
-
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: "Marcas!A1:E1",
+    range: "Marcas!A1:F1",
     valueInputOption: "RAW",
     requestBody: { values: [headers] },
   });
@@ -185,7 +219,7 @@ export async function getMarcas(personName?: string): Promise<PersonalBest[]> {
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: "Marcas!A2:E",
+    range: "Marcas!A2:F",
   });
 
   const rows = response.data.values;
@@ -199,6 +233,7 @@ export async function getMarcas(personName?: string): Promise<PersonalBest[]> {
       distancia: parseInt(row[2] as string || "0", 10),
       tiempo: (row[3] as string || "").trim(),
       fecha: (row[4] as string || "").trim(),
+      piscina: (row[5] as string || "25m").trim().toLowerCase(),
     }));
 
   if (personName) {
@@ -217,7 +252,8 @@ export async function addOrUpdateMarca(
   estilo: string,
   distancia: number,
   tiempo: string,
-  fecha: string
+  fecha: string,
+  piscina: string
 ): Promise<void> {
   await ensureMarcasSheet();
 
@@ -227,7 +263,7 @@ export async function addOrUpdateMarca(
   // Obtener todas las filas para buscar coincidencias
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: "Marcas!A2:E",
+    range: "Marcas!A2:F",
   });
 
   const rows = response.data.values || [];
@@ -238,11 +274,13 @@ export async function addOrUpdateMarca(
     const rowNombre = (row[0] as string || "").trim().toLowerCase();
     const rowEstilo = (row[1] as string || "").trim().toLowerCase();
     const rowDistancia = parseInt(row[2] as string || "0", 10);
+    const rowPiscina = (row[5] as string || "25m").trim().toLowerCase();
 
     if (
       rowNombre === nombre.trim().toLowerCase() &&
       rowEstilo === estilo.trim().toLowerCase() &&
-      rowDistancia === distancia
+      rowDistancia === distancia &&
+      rowPiscina === piscina.trim().toLowerCase()
     ) {
       foundIndex = i;
       break;
@@ -255,20 +293,21 @@ export async function addOrUpdateMarca(
     distancia.toString(),
     tiempo.trim(),
     fecha.trim(),
+    piscina.trim().toLowerCase(),
   ];
 
   if (foundIndex !== -1) {
     const sheetRowNumber = foundIndex + 2;
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: `Marcas!A${sheetRowNumber}:E${sheetRowNumber}`,
+      range: `Marcas!A${sheetRowNumber}:F${sheetRowNumber}`,
       valueInputOption: "RAW",
       requestBody: { values: [rowValue] },
     });
   } else {
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: "Marcas!A:E",
+      range: "Marcas!A:F",
       valueInputOption: "RAW",
       insertDataOption: "INSERT_ROWS",
       requestBody: { values: [rowValue] },
@@ -287,7 +326,7 @@ export async function getTrainings(personName: string): Promise<TrainingData[]> 
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${personName}!A2:H`,
+    range: `${personName}!A2:I`,
   });
 
   const rows = response.data.values;
@@ -304,6 +343,7 @@ export async function getTrainings(personName: string): Promise<TrainingData[]> 
       material: (row[5] as string || "").trim(),
       pulso: (row[6] as string || "").trim(),
       notas: (row[7] as string || "").trim(),
+      piscina: (row[8] as string || "25m").trim().toLowerCase(),
     }));
 }
 
@@ -328,11 +368,12 @@ export async function appendTraining(
     data.material,
     data.pulso,
     data.notas,
+    data.piscina,
   ];
 
   await sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: `${personName}!A:H`,
+    range: `${personName}!A:I`,
     valueInputOption: "RAW",
     insertDataOption: "INSERT_ROWS",
     requestBody: { values: [row] },

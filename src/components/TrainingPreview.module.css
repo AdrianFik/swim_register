@@ -234,3 +234,9 @@
   font-weight: 500;
   line-height: 1.4;
 }
+
+.fieldSelect {
+  composes: fieldInput;
+  color-scheme: dark;
+  cursor: pointer;
+}

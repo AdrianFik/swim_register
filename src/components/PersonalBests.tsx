@@ -16,6 +16,7 @@ interface PersonalBest {
   distancia: number;
   tiempo: string;
   fecha: string;
+  piscina: string;
 }
 
 interface PersonalBestsProps {
@@ -49,6 +50,7 @@ export default function PersonalBests({ person }: PersonalBestsProps) {
   // Formulario
   const [estilo, setEstilo] = useState("crol");
   const [distancia, setDistancia] = useState(100);
+  const [piscina, setPiscina] = useState("25m");
   const [tiempo, setTiempo] = useState("");
   const [fecha, setFecha] = useState(new Date().toISOString().split("T")[0]);
   const [submitting, setSubmitting] = useState(false);
@@ -126,6 +128,7 @@ export default function PersonalBests({ person }: PersonalBestsProps) {
           distancia,
           tiempo,
           fecha,
+          piscina,
         }),
       });
 
@@ -222,6 +225,18 @@ export default function PersonalBests({ person }: PersonalBestsProps) {
               </div>
 
               <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Tipo de Piscina</label>
+                <select
+                  className={styles.formInput}
+                  value={piscina}
+                  onChange={(e) => setPiscina(e.target.value)}
+                >
+                  <option value="25m">Piscina Corta (25m)</option>
+                  <option value="50m">Piscina Larga (50m)</option>
+                </select>
+              </div>
+
+              <div className={styles.formGroup}>
                 <label className={styles.formLabel}>Tiempo de PB</label>
                 <input
                   type="text"
@@ -292,6 +307,9 @@ export default function PersonalBests({ person }: PersonalBestsProps) {
                         {ESTILOS_OPTIONS.find((o) => o.value === pb.estilo)?.label || pb.estilo}
                       </span>
                       <span className={styles.pbDistBadge}>{pb.distancia}m</span>
+                      <span className={`${styles.pbPoolBadge} ${pb.piscina === "50m" ? styles.pbPoolLarga : ""}`}>
+                        {pb.piscina}
+                      </span>
                     </div>
                     <div className={styles.pbTime}>{pb.tiempo}</div>
                     <div className={styles.pbDate}>

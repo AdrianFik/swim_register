@@ -121,60 +121,114 @@ export function normalizeStyle(styleStr: string): string {
   return "crol"; // Valor por defecto
 }
 
+/**
+ * Devuelve el factor de conversión por cada 100m para un estilo dado (en segundos).
+ * Crol: 1.6s, Espalda: 2.0s, Braza: 2.0s, Mariposa: 1.0s, Estilos: 1.65s (promedio).
+ */
+export function getConversionFactor100m(styleStr: string): number {
+  const style = normalizeStyle(styleStr);
+  if (style === "crol") return 1.6;
+  if (style === "espalda") return 2.0;
+  if (style === "braza") return 2.0;
+  if (style === "mariposa") return 1.0;
+  return 1.65; // Promedio de los estilos para IM/Estilos
+}
+
 export interface ZoneResult {
   zone: string;
   percentage: number;
   pbUsed: PersonalBest;
   scaled: boolean;
+  pbConverted: boolean;
 }
 
 /**
- * Calcula la zona de intensidad sugerida basándose en la serie, tiempo medio, estilo y los PBs.
+ * Calcula la zona de intensidad sugerida basándose en la serie, tiempo medio, estilo, PBs y piscina.
  */
 export function calculateIntensityZone(
   seriesStr: string,
   tiemposStr: string,
   estiloStr: string,
-  pbs: PersonalBest[]
+  pbs: PersonalBest[],
+  piscinaEntrenamiento: string = "25m"
 ): ZoneResult | null {
   const distance = extractDistance(seriesStr);
   const avgSeconds = extractAverageSeconds(tiemposStr);
   if (!distance || !avgSeconds || pbs.length === 0) return null;
 
   const style = normalizeStyle(estiloStr);
+  const pool = piscinaEntrenamiento.trim().toLowerCase();
 
   // Intentar encontrar el PB ideal
   let pbToUse: PersonalBest | undefined;
   let scaled = false;
 
-  // 1. Buscar PB del mismo estilo y misma distancia exacta
+  // 1. Buscar PB del mismo estilo, misma distancia y mismo tipo de piscina
   pbToUse = pbs.find(
-    (pb) => normalizeStyle(pb.estilo) === style && pb.distancia === distance
+    (pb) =>
+      normalizeStyle(pb.estilo) === style &&
+      pb.distancia === distance &&
+      pb.piscina.trim().toLowerCase() === pool
   );
 
-  // 2. Si no hay distancia exacta, buscar PB de 100m del mismo estilo
+  // 2. Si no hay, buscar PB del mismo estilo y misma distancia (cualquier piscina, aplicaremos conversión)
   if (!pbToUse) {
     pbToUse = pbs.find(
-      (pb) => normalizeStyle(pb.estilo) === style && pb.distancia === 100
+      (pb) =>
+        normalizeStyle(pb.estilo) === style &&
+        pb.distancia === distance
+    );
+  }
+
+  // 3. Buscar PB de 100m del mismo estilo y mismo tipo de piscina
+  if (!pbToUse) {
+    pbToUse = pbs.find(
+      (pb) =>
+        normalizeStyle(pb.estilo) === style &&
+        pb.distancia === 100 &&
+        pb.piscina.trim().toLowerCase() === pool
     );
     if (pbToUse) scaled = true;
   }
 
-  // 3. Si no hay 100m, buscar cualquier PB del mismo estilo
+  // 4. Buscar PB de 100m del mismo estilo (cualquier piscina)
+  if (!pbToUse) {
+    pbToUse = pbs.find(
+      (pb) =>
+        normalizeStyle(pb.estilo) === style &&
+        pb.distancia === 100
+    );
+    if (pbToUse) scaled = true;
+  }
+
+  // 5. Buscar cualquier PB del mismo estilo
   if (!pbToUse) {
     pbToUse = pbs.find((pb) => normalizeStyle(pb.estilo) === style);
     if (pbToUse) scaled = true;
   }
 
-  // 4. Si no hay PB del mismo estilo, buscar PB de 100m Crol (referencia universal)
+  // 6. Buscar PB de 100m Crol en la misma piscina
   if (!pbToUse) {
     pbToUse = pbs.find(
-      (pb) => normalizeStyle(pb.estilo) === "crol" && pb.distancia === 100
+      (pb) =>
+        normalizeStyle(pb.estilo) === "crol" &&
+        pb.distancia === 100 &&
+        pb.piscina.trim().toLowerCase() === pool
     );
     if (pbToUse) scaled = true;
   }
 
-  // 5. Si aún no hay nada, usar cualquier primer PB disponible
+  // 7. Buscar PB de 100m Crol en cualquier piscina
+  if (!pbToUse) {
+    pbToUse = pbs.find(
+      (pb) =>
+        normalizeStyle(pb.estilo) === "crol" &&
+        pb.distancia === 100
+    );
+    if (pbToUse) scaled = true;
+  }
+
+  // 8. Usar cualquier PB disponible
   if (!pbToUse) {
     pbToUse = pbs[0];
     scaled = true;
@@ -183,9 +237,30 @@ export function calculateIntensityZone(
   const pbSeconds = parseSeconds(pbToUse.tiempo);
   if (!pbSeconds) return null;
 
+  // Aplicar factor de conversión si las piscinas no coinciden
+  const pbPool = pbToUse.piscina.trim().toLowerCase();
+  let pbSecondsConverted = pbSeconds;
+  let pbConverted = false;
+
+  if (pbPool !== pool) {
+    const factor100m = getConversionFactor100m(pbToUse.estilo);
+    // Proporcional a la distancia del PB
+    const factor = factor100m * (pbToUse.distancia / 100);
+
+    if (pbPool === "25m" && pool === "50m") {
+      // PB en 25m, entrenamiento en 50m: sumar segundos (más lento en 50m)
+      pbSecondsConverted = pbSeconds + factor;
+      pbConverted = true;
+    } else if (pbPool === "50m" && pool === "25m") {
+      // PB en 50m, entrenamiento en 25m: restar segundos (más rápido en 25m)
+      pbSecondsConverted = pbSeconds - factor;
+      pbConverted = true;
+    }
+  }
+
   // Convertir ritmos a base 100m para comparar de forma uniforme
   const seriesPace100 = avgSeconds * (100 / distance);
-  const pbPace100 = pbSeconds * (100 / pbToUse.distancia);
+  const pbPace100 = pbSecondsConverted * (100 / pbToUse.distancia);
 
   // Calcular porcentaje de velocidad en relación al PB (velocidad = distancia / tiempo)
   // % = (velocidad_serie / velocidad_PB) * 100 = (pbPace100 / seriesPace100) * 100
@@ -214,5 +289,6 @@ export function calculateIntensityZone(
     percentage: Math.round(percentage * 10) / 10,
     pbUsed: pbToUse,
     scaled,
+    pbConverted,
   };
 }

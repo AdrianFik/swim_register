@@ -12,6 +12,7 @@ interface TrainingData {
   material: string;
   pulso: string;
   notas: string;
+  piscina: string;
 }
 
 interface AudioRecorderProps {
