@@ -53,7 +53,31 @@ const ESTILOS_OPTIONS = [
   { value: "estilos", label: "Estilos (IM)" },
 ];
 
-const DISTANCIAS_OPTIONS = [25, 50, 100, 200, 400, 800, 1500];
+const WORK_TYPES_OPTIONS = [
+  {
+    group: "Ritmos de Trabajo",
+    items: [
+      { value: "Ritmo de 100", label: "Ritmo de 100" },
+      { value: "Ritmo de 200", label: "Ritmo de 200" },
+      { value: "Ritmo de 400", label: "Ritmo de 400" },
+      { value: "Ritmo de 800", label: "Ritmo de 800" },
+      { value: "Ritmo de 1500", label: "Ritmo de 1500" },
+    ],
+  },
+  {
+    group: "Zonas de Intensidad",
+    items: [
+      { value: "Velocidad", label: "Velocidad" },
+      { value: "Anaeróbico", label: "Anaeróbico" },
+      { value: "VO2Max", label: "VO2Max" },
+      { value: "Aeróbico intenso", label: "Aeróbico intenso" },
+      { value: "Aeróbico medio", label: "Aeróbico medio" },
+      { value: "Aeróbico ligero", label: "Aeróbico ligero" },
+      { value: "Suave", label: "Suave" },
+      { value: "Crono", label: "Crono" },
+    ],
+  },
+];
 
 export default function Dashboard({ person }: DashboardProps) {
   const isCoach = person.role === "entrenador";
@@ -71,7 +95,7 @@ export default function Dashboard({ person }: DashboardProps) {
 
   // Filtros de gráficos
   const [selectedStyle, setSelectedStyle] = useState("crol");
-  const [selectedDistance, setSelectedDistance] = useState(100);
+  const [selectedWorkType, setSelectedWorkType] = useState("Ritmo de 200");
   const [chartType, setChartType] = useState<"trend" | "distribution">("trend");
 
   // Cargar nadadores si es coach
@@ -125,9 +149,9 @@ export default function Dashboard({ person }: DashboardProps) {
       dateStr: string;
       dateVal: Date;
       seconds: number;
-      originalSeconds: number;
+      originalAverageSecs: number;
       pool: string;
-      conversionOffset: number;
+      series: string;
     }[] = [];
 
     for (const t of trainings) {
@@ -138,24 +162,26 @@ export default function Dashboard({ person }: DashboardProps) {
       const avgSecs = extractAverageSeconds(t.tiempos);
       const pool = (t.piscina || "25m").trim().toLowerCase();
 
-      // Si coincide con los filtros
-      if (style === selectedStyle && distance === selectedDistance && avgSecs !== null) {
-        let convertedSecs = avgSecs;
-        let offset = 0;
+      // Si coincide con el estilo y la intensidad contiene la etiqueta seleccionada
+      const matchesStyle = style === selectedStyle;
+      const matchesWorkType =
+        t.intensidad &&
+        t.intensidad.toLowerCase().includes(selectedWorkType.toLowerCase());
 
+      if (matchesStyle && matchesWorkType && distance && avgSecs !== null) {
+        let pace100 = avgSecs * (100 / distance);
         if (pool === "50m") {
           const factor100m = getConversionFactor100m(style);
-          offset = factor100m * (distance / 100);
-          convertedSecs = avgSecs - offset; // Restar segundos para obtener equivalencia en 25m (más rápida)
+          pace100 = pace100 - factor100m;
         }
 
         dataPoints.push({
           dateStr: t.fecha,
           dateVal: new Date(t.fecha),
-          seconds: Math.round(convertedSecs * 100) / 100,
-          originalSeconds: Math.round(avgSecs * 100) / 100,
+          seconds: Math.round(pace100 * 10) / 10,
+          originalAverageSecs: avgSecs,
           pool: pool,
-          conversionOffset: Math.round(offset * 100) / 100,
+          series: t.series,
         });
       }
     }
@@ -166,11 +192,11 @@ export default function Dashboard({ person }: DashboardProps) {
       .map((dp) => ({
         date: dp.dateStr,
         seconds: dp.seconds,
-        originalSeconds: dp.originalSeconds,
+        originalAverageSecs: dp.originalAverageSecs,
         pool: dp.pool,
-        offset: dp.conversionOffset,
+        series: dp.series,
       }));
-  }, [trainings, selectedStyle, selectedDistance]);
+  }, [trainings, selectedStyle, selectedWorkType]);
 
   // Procesar entrenamientos para el gráfico de torta de intensidades
   const intensityData = useMemo(() => {
@@ -179,12 +205,33 @@ export default function Dashboard({ person }: DashboardProps) {
     const counts: Record<string, number> = {};
     for (const t of trainings) {
       if (!t.intensidad) continue;
-      let zone = t.intensidad.trim();
-      zone = zone.charAt(0).toUpperCase() + zone.slice(1).toLowerCase();
-      if (zone.toLowerCase() === "vo2max") {
-        zone = "VO2Max";
+      const parts = t.intensidad.split("+").map((s) => s.trim()).filter(Boolean);
+      for (const part of parts) {
+        let matched = "";
+        const allClosedLabels = [
+          "Ritmo de 100",
+          "Ritmo de 200",
+          "Ritmo de 400",
+          "Ritmo de 800",
+          "Ritmo de 1500",
+          "Velocidad",
+          "Anaeróbico",
+          "VO2Max",
+          "Aeróbico intenso",
+          "Aeróbico medio",
+          "Aeróbico ligero",
+          "Suave",
+          "Crono",
+        ];
+        const found = allClosedLabels.find((l) => l.toLowerCase() === part.toLowerCase());
+        if (found) {
+          matched = found;
+        } else {
+          matched = part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+          if (matched.toLowerCase() === "vo2max") matched = "VO2Max";
+        }
+        counts[matched] = (counts[matched] || 0) + 1;
       }
-      counts[zone] = (counts[zone] || 0) + 1;
     }
 
     return Object.entries(counts)
@@ -200,6 +247,12 @@ export default function Dashboard({ person }: DashboardProps) {
     "Aeróbico medio": "#06b6d4",
     "Aeróbico ligero": "#3b82f6",
     "Suave": "#64748b",
+    "Crono": "#ec4899",
+    "Ritmo de 100": "#8b5cf6",
+    "Ritmo de 200": "#a855f7",
+    "Ritmo de 400": "#c084fc",
+    "Ritmo de 800": "#d8b4fe",
+    "Ritmo de 1500": "#e9d5ff",
   };
 
   return (
@@ -260,16 +313,20 @@ export default function Dashboard({ person }: DashboardProps) {
               </div>
 
               <div className={styles.filterGroup}>
-                <label className={styles.filterLabel}>Distancia de Serie</label>
+                <label className={styles.filterLabel}>Tipo de Trabajo</label>
                 <select
                   className={styles.filterSelect}
-                  value={selectedDistance}
-                  onChange={(e) => setSelectedDistance(Number(e.target.value))}
+                  value={selectedWorkType}
+                  onChange={(e) => setSelectedWorkType(e.target.value)}
                 >
-                  {DISTANCIAS_OPTIONS.map((d) => (
-                    <option key={d} value={d}>
-                      {d} metros
-                    </option>
+                  {WORK_TYPES_OPTIONS.map((group) => (
+                    <optgroup key={group.group} label={group.group}>
+                      {group.items.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>
@@ -306,7 +363,7 @@ export default function Dashboard({ person }: DashboardProps) {
               </div>
               {chartType === "trend" && (
                 <span className={styles.chartFilterBadge}>
-                  {ESTILOS_OPTIONS.find((o) => o.value === selectedStyle)?.label} - {selectedDistance}m
+                  {ESTILOS_OPTIONS.find((o) => o.value === selectedStyle)?.label} - {selectedWorkType}
                 </span>
               )}
             </div>
@@ -322,7 +379,7 @@ export default function Dashboard({ person }: DashboardProps) {
                   <Compass size={40} className={styles.emptyChartIcon} />
                   <p>No se encontraron entrenamientos para estos filtros.</p>
                   <p className={styles.hint}>
-                    Asegúrate de registrar entrenamientos indicando la distancia de las series (ej: {selectedDistance}m) y el estilo ({selectedStyle}).
+                    Asegúrate de registrar entrenamientos indicando el estilo ({selectedStyle}) y que estén etiquetados con el tipo de trabajo "{selectedWorkType}".
                   </p>
                 </div>
               ) : (
@@ -370,14 +427,15 @@ export default function Dashboard({ person }: DashboardProps) {
                         labelFormatter={(label) => `Fecha: ${label}`}
                         formatter={(value: any, name: any, props: any) => {
                           const payload = props.payload;
+                          if (!payload) return [value, name];
                           const formattedTime = formatSeconds(Number(value));
-                          if (payload && payload.pool === "50m") {
-                            return [
-                              `${formattedTime} (Original: ${formatSeconds(payload.originalSeconds)} en 50m, conv: -${payload.offset}s)`,
-                              "Tiempo Medio (Equiv. 25m)"
-                            ];
-                          }
-                          return [formattedTime, "Tiempo Medio"];
+                          const originalTimeFormatted = formatSeconds(payload.originalAverageSecs);
+                          const seriesStr = payload.series;
+                          const poolStr = payload.pool === "50m" ? "50m" : "25m";
+                          return [
+                            `${formattedTime} (original: ${originalTimeFormatted} en serie "${seriesStr}" en piscina de ${poolStr})`,
+                            "Paso por 100m (equiv. 25m)"
+                          ];
                         }}
                       />
                       <Line

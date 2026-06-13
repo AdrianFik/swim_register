@@ -140,6 +140,32 @@ export interface ZoneResult {
   pbUsed: PersonalBest;
   scaled: boolean;
   pbConverted: boolean;
+  suggestedLabels: string[];
+}
+
+/**
+ * Detecta si el entrenamiento consta de una sola repetición (sin multiplicadores mayores a 1).
+ */
+export function isSingleRepetition(seriesStr: string): boolean {
+  if (!seriesStr) return false;
+  const clean = seriesStr.trim().toLowerCase();
+  
+  // Si tiene el signo '+', indica múltiples bloques combinados
+  if (clean.includes("+")) return false;
+
+  const multiplierRegex = /\b(\d+)\s*(?:x|\*|de|veces\b)/gi;
+  let match;
+  let hasMultiplierGreaterThanOne = false;
+  while ((match = multiplierRegex.exec(clean)) !== null) {
+    const mult = parseInt(match[1], 10);
+    if (mult > 1) {
+      hasMultiplierGreaterThanOne = true;
+    }
+  }
+  if (hasMultiplierGreaterThanOne) {
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -263,26 +289,83 @@ export function calculateIntensityZone(
   const pbPace100 = pbSecondsConverted * (100 / pbToUse.distancia);
 
   // Calcular porcentaje de velocidad en relación al PB (velocidad = distancia / tiempo)
-  // % = (velocidad_serie / velocidad_PB) * 100 = (pbPace100 / seriesPace100) * 100
   const percentage = (pbPace100 / seriesPace100) * 100;
 
   // Determinar zona según estándares del entrenador
   let zone = "Suave";
-  if (percentage >= 97.5) {
-    zone = "Velocidad";
-  } else if (percentage >= 90.0) {
-    zone = "Anaeróbico";
-  } else if (percentage >= 85.0) {
-    zone = "VO2Max";
-  } else if (percentage >= 82.5) {
-    zone = "Aeróbico intenso";
-  } else if (percentage >= 77.5) {
-    zone = "Aeróbico medio";
-  } else if (percentage >= 70.0) {
-    zone = "Aeróbico ligero";
+  const singleRep = isSingleRepetition(seriesStr);
+
+  if (singleRep) {
+    zone = "Crono";
   } else {
-    zone = "Suave";
+    if (percentage >= 97.5) {
+      zone = "Velocidad";
+    } else if (percentage >= 90.0) {
+      zone = "Anaeróbico";
+    } else if (percentage >= 85.0) {
+      zone = "VO2Max";
+    } else if (percentage >= 82.5) {
+      zone = "Aeróbico intenso";
+    } else if (percentage >= 77.5) {
+      zone = "Aeróbico medio";
+    } else if (percentage >= 70.0) {
+      zone = "Aeróbico ligero";
+    } else {
+      zone = "Suave";
+    }
   }
+
+  // Sugerir ritmos de PB basados en comparación con +/- 3.5%
+  const suggestedLabels: string[] = [zone];
+  const targetDistances = [100, 200, 400, 800, 1500];
+
+  for (const dist of targetDistances) {
+    let distPb = pbs.find(
+      (pb) =>
+        normalizeStyle(pb.estilo) === style &&
+        pb.distancia === dist &&
+        pb.piscina.trim().toLowerCase() === pool
+    );
+    if (!distPb) {
+      distPb = pbs.find(
+        (pb) =>
+          normalizeStyle(pb.estilo) === style &&
+          pb.distancia === dist
+      );
+    }
+    if (distPb) {
+      const distPbSecs = parseSeconds(distPb.tiempo);
+      if (distPbSecs) {
+        const distPbPool = distPb.piscina.trim().toLowerCase();
+        let distPbSecsConverted = distPbSecs;
+        if (distPbPool !== pool) {
+          const factor100m = getConversionFactor100m(distPb.estilo);
+          const factor = factor100m * (distPb.distancia / 100);
+          if (distPbPool === "25m" && pool === "50m") {
+            distPbSecsConverted = distPbSecs + factor;
+          } else if (distPbPool === "50m" && pool === "25m") {
+            distPbSecsConverted = distPbSecs - factor;
+          }
+        }
+        const distPbPace100 = distPbSecsConverted * (100 / dist);
+        const diffPercent = Math.abs(seriesPace100 - distPbPace100) / distPbPace100;
+        if (diffPercent <= 0.035) {
+          suggestedLabels.push(`Ritmo de ${dist}`);
+        }
+      }
+    }
+  }
+
+  // Ordenar sugerencias: Ritmos primero, luego Zonas
+  const ritmosOrder = ["Ritmo de 100", "Ritmo de 200", "Ritmo de 400", "Ritmo de 800", "Ritmo de 1500"];
+  suggestedLabels.sort((a, b) => {
+    const aIsRitmo = ritmosOrder.includes(a);
+    const bIsRitmo = ritmosOrder.includes(b);
+    if (aIsRitmo && !bIsRitmo) return -1;
+    if (!aIsRitmo && bIsRitmo) return 1;
+    if (aIsRitmo && bIsRitmo) return ritmosOrder.indexOf(a) - ritmosOrder.indexOf(b);
+    return 0;
+  });
 
   return {
     zone,
@@ -290,5 +373,6 @@ export function calculateIntensityZone(
     pbUsed: pbToUse,
     scaled,
     pbConverted,
+    suggestedLabels,
   };
 }

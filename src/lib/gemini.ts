@@ -38,7 +38,10 @@ Reglas específicas de extracción y formateo:
    - Si se mencionan tiempos por partes: "1:15, 1:16, 1:14" -> "1:15, 1:16, 1:14".
    - Si es un crono solo (ej: 800 crono en 9:55): "9:55" o "último 800 en 9:55".
 
-5. intensidad: string. Mapea fielmente los términos usados en natación: "Aeróbico suave", "Aeróbico intenso", "Anaeróbico", "Velocidad", "Umbral", "Regenerativo", "Crono" u otras variantes mencionadas.
+5. intensidad: string. Clasifica la intensidad usando ÚNICAMENTE las siguientes etiquetas cerradas:
+   - Ritmos: "Ritmo de 100", "Ritmo de 200", "Ritmo de 400", "Ritmo de 800", "Ritmo de 1500".
+   - Zonas: "Velocidad", "Anaeróbico", "VO2Max", "Aeróbico intenso", "Aeróbico medio", "Aeróbico ligero", "Suave", "Crono".
+   Si hay múltiples etiquetas aplicables (por ejemplo, un ritmo y una zona), únelas separadas exactamente por " + " (ej: "Ritmo de 200 + Anaeróbico"). Si no aplica ninguna, deja vacío.
 
 6. material: string. Si no se menciona ningún material, pon exactamente "Sin material" por defecto. Si se menciona, extrae el material (ej: "palas", "pull-buoy", "aletas", "tabla").
 

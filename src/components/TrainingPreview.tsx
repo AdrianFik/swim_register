@@ -142,10 +142,10 @@ export default function TrainingPreview({
     if (result) {
       setFormData((prev) => ({
         ...prev,
-        intensidad: result.zone,
+        intensidad: result.suggestedLabels.join(" + "),
       }));
       setCalcZoneInfo(
-        `Calculado: ${result.zone} (${result.percentage}% vel. ref. PB de ${result.pbUsed.distancia}m ${result.pbUsed.estilo}${result.scaled ? " extrapolado" : ""}${result.pbConverted ? ` conv. de ${result.pbUsed.piscina}` : ""})`
+        `Calculado: ${result.suggestedLabels.join(" + ")} (${result.percentage}% vel. ref. PB de ${result.pbUsed.distancia}m ${result.pbUsed.estilo}${result.scaled ? " extrapolado" : ""}${result.pbConverted ? ` conv. de ${result.pbUsed.piscina}` : ""})`
       );
     } else {
       setCalcZoneInfo(null);
@@ -155,6 +155,32 @@ export default function TrainingPreview({
   const updateField = (key: keyof TrainingData, value: string) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
+
+  const selectedLabels = formData.intensidad
+    ? formData.intensidad.split("+").map((s) => s.trim()).filter(Boolean)
+    : [];
+
+  const toggleLabel = (label: string) => {
+    let nextLabels;
+    if (selectedLabels.includes(label)) {
+      nextLabels = selectedLabels.filter((l) => l !== label);
+    } else {
+      nextLabels = [...selectedLabels, label];
+    }
+
+    const ritmosOrder = ["Ritmo de 100", "Ritmo de 200", "Ritmo de 400", "Ritmo de 800", "Ritmo de 1500"];
+    nextLabels.sort((a, b) => {
+      const aIsRitmo = ritmosOrder.includes(a);
+      const bIsRitmo = ritmosOrder.includes(b);
+      if (aIsRitmo && !bIsRitmo) return -1;
+      if (!aIsRitmo && bIsRitmo) return 1;
+      if (aIsRitmo && bIsRitmo) return ritmosOrder.indexOf(a) - ritmosOrder.indexOf(b);
+      return 0;
+    });
+
+    updateField("intensidad", nextLabels.join(" + "));
+  };
+
 
   const handleSave = async () => {
     setSaving(true);
@@ -247,6 +273,42 @@ export default function TrainingPreview({
                 <option value="25m">Piscina Corta (25m)</option>
                 <option value="50m">Piscina Larga (50m)</option>
               </select>
+            ) : field.key === "intensidad" ? (
+              <div className={styles.chipsContainer} id={`field-${field.key}`}>
+                <div className={styles.chipGroupLabel}>Ritmos de Trabajo</div>
+                <div className={styles.chipsRow}>
+                  {["Ritmo de 100", "Ritmo de 200", "Ritmo de 400", "Ritmo de 800", "Ritmo de 1500"].map((label) => {
+                    const isSelected = selectedLabels.includes(label);
+                    return (
+                      <button
+                        key={label}
+                        type="button"
+                        className={`${styles.chip} ${isSelected ? styles.chipActive : ""}`}
+                        onClick={() => toggleLabel(label)}
+                      >
+                        {label.replace("Ritmo de ", "")}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className={styles.chipGroupLabel}>Zonas de Intensidad</div>
+                <div className={styles.chipsRow}>
+                  {["Velocidad", "Anaeróbico", "VO2Max", "Aeróbico intenso", "Aeróbico medio", "Aeróbico ligero", "Suave", "Crono"].map((label) => {
+                    const isSelected = selectedLabels.includes(label);
+                    return (
+                      <button
+                        key={label}
+                        type="button"
+                        className={`${styles.chip} ${isSelected ? styles.chipActive : ""}`}
+                        onClick={() => toggleLabel(label)}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             ) : field.type === "date" ? (
               <input
                 id={`field-${field.key}`}
