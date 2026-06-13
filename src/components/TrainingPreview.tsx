@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import styles from "./TrainingPreview.module.css";
+import { PersonalBest } from "@/lib/sheets";
+import { calculateIntensityZone } from "@/lib/zones";
 
 interface TrainingData {
   fecha: string;
@@ -93,6 +95,54 @@ export default function TrainingPreview({
   const [formData, setFormData] = useState<TrainingData>({ ...data });
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  
+  const [pbs, setPbs] = useState<PersonalBest[]>([]);
+  const [calcZoneInfo, setCalcZoneInfo] = useState<string | null>(null);
+
+  // Cargar PBs del nadador
+  useEffect(() => {
+    async function loadPbs() {
+      try {
+        const res = await fetch(
+          `/api/marcas?personName=${encodeURIComponent(personName)}`
+        );
+        if (res.ok) {
+          const data: PersonalBest[] = await res.json();
+          setPbs(data);
+        }
+      } catch (err) {
+        console.error("Error loading PBs in preview:", err);
+      }
+    }
+    loadPbs();
+  }, [personName]);
+
+  // Autocalcular zona en tiempo real cuando cambian series, tiempos o estilo
+  useEffect(() => {
+    if (pbs.length === 0 || !formData.series || !formData.tiempos) {
+      setCalcZoneInfo(null);
+      return;
+    }
+    
+    const result = calculateIntensityZone(
+      formData.series,
+      formData.tiempos,
+      formData.estilos,
+      pbs
+    );
+
+    if (result) {
+      setFormData((prev) => ({
+        ...prev,
+        intensidad: result.zone,
+      }));
+      setCalcZoneInfo(
+        `Calculado: ${result.zone} (${result.percentage}% vel. ref. PB de ${result.pbUsed.distancia}m ${result.pbUsed.estilo}${result.scaled ? " extrapolado" : ""})`
+      );
+    } else {
+      setCalcZoneInfo(null);
+    }
+  }, [formData.series, formData.tiempos, formData.estilos, pbs]);
 
   const updateField = (key: keyof TrainingData, value: string) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -205,6 +255,9 @@ export default function TrainingPreview({
                 placeholder={field.placeholder}
                 onChange={(e) => updateField(field.key, e.target.value)}
               />
+            )}
+            {field.key === "intensidad" && calcZoneInfo && (
+              <span className={styles.calcZoneHelp}>{calcZoneInfo}</span>
             )}
           </div>
         ))}

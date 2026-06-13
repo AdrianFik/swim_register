@@ -1,5 +1,91 @@
 .container {
   padding-top: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.appHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 92%;
+  max-width: 1000px;
+  margin: 0 auto 24px auto;
+  padding: 12px 20px;
+  background: rgba(30, 41, 59, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.logoArea {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logoIcon {
+  font-size: 1.5rem;
+}
+
+.logoText {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+
+.userCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.userInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.userName {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.userRole {
+  font-size: 0.7rem;
+  color: #94a3b8;
+}
+
+.logoutBtn {
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: #cbd5e1;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.logoutBtn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+}
+
+.mainContent {
+  flex: 1;
+  width: 100%;
+}
+
+.stepWrapper {
+  animation: fadeIn 0.4s ease-out;
 }
 
 .stepContainer {
@@ -50,7 +136,7 @@
 /* Error toast */
 .errorToast {
   position: fixed;
-  bottom: var(--space-lg);
+  bottom: 96px; /* Más arriba para no chocar con la nav bar */
   left: 50%;
   transform: translateX(-50%);
   max-width: 400px;
@@ -62,13 +148,14 @@
   color: #fca5a5;
   font-size: 0.85rem;
   line-height: 1.5;
-  z-index: 100;
+  z-index: 1100;
   animation: slideUp 0.3s ease-out;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   display: flex;
   align-items: flex-start;
   gap: var(--space-sm);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
 }
 
 .errorClose {
@@ -77,8 +164,21 @@
   padding: 0 4px;
   flex-shrink: 0;
   transition: color var(--transition-fast);
+  background: none;
+  border: none;
+  cursor: pointer;
 }
 
 .errorClose:hover {
   color: #fca5a5;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translate(-50%, 20px); opacity: 0; }
+  to { transform: translate(-50%, 0); opacity: 1; }
 }
