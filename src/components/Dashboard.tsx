@@ -173,18 +173,23 @@ export default function Dashboard({ person }: DashboardProps) {
     fetchTrainings(selectedSwimmerName);
   }, [selectedSwimmerName, fetchTrainings]);
 
-  // Procesar entrenamientos para el gráfico de línea (unificado a piscina de 25m)
+  // Procesar entrenamientos para el gráfico de línea
   const chartData = useMemo(() => {
     if (trainings.length === 0) return [];
 
     const dataPoints: {
       dateStr: string;
       dateVal: Date;
-      seconds: number;
+      seconds: number; // Ritmo por 100m si es ritmo, Porcentaje de velocidad si es zona
       originalAverageSecs: number;
       pool: string;
       series: string;
+      percentage: number;
+      pbPace100: number;
     }[] = [];
+
+    const isRhythm = selectedWorkType.startsWith("Ritmo de ");
+    const rhythmDistance = isRhythm ? parseInt(selectedWorkType.replace("Ritmo de ", ""), 10) : 0;
 
     for (const t of trainings) {
       if (!t.fecha || !t.series || !t.tiempos) continue;
@@ -201,19 +206,70 @@ export default function Dashboard({ person }: DashboardProps) {
         t.intensidad.toLowerCase().includes(selectedWorkType.toLowerCase());
 
       if (matchesStyle && matchesWorkType && distance && avgSecs !== null) {
-        let pace100 = avgSecs * (100 / distance);
-        if (pool === "50m") {
-          const factor100m = getConversionFactor100m(style);
-          pace100 = pace100 - factor100m;
+        // La marca personal objetivo de este bloque debe ser de la misma distancia
+        const targetDist = isRhythm ? rhythmDistance : distance;
+
+        // Buscar PB de esa distancia exacta y estilo
+        let distPb = pbs.find(
+          (pb) =>
+            normalizeStyle(pb.estilo) === style &&
+            pb.distancia === targetDist &&
+            pb.piscina.trim().toLowerCase() === pool
+        );
+        if (!distPb) {
+          distPb = pbs.find(
+            (pb) =>
+              normalizeStyle(pb.estilo) === style &&
+              pb.distancia === targetDist
+          );
         }
+
+        // Si no hay PB para esta distancia exacta, excluir este punto
+        if (!distPb) continue;
+
+        const pbSeconds = parseSeconds(distPb.tiempo);
+        if (!pbSeconds) continue;
+
+        // Convertir PB a base 25m si difiere
+        const pbPool = distPb.piscina.trim().toLowerCase();
+        let pbSecondsConverted = pbSeconds;
+        if (pbPool !== pool) {
+          const factor100m = getConversionFactor100m(distPb.estilo);
+          const factor = factor100m * (distPb.distancia / 100);
+          if (pbPool === "25m" && pool === "50m") {
+            pbSecondsConverted = pbSeconds + factor;
+          } else if (pbPool === "50m" && pool === "25m") {
+            pbSecondsConverted = pbSeconds - factor;
+          }
+        }
+
+        // Ritmo medio de la serie en 25m equivalente
+        let finalAvgSecs25 = avgSecs;
+        if (pool === "50m") {
+          finalAvgSecs25 = avgSecs - getConversionFactor100m(style) * (distance / 100);
+        }
+        const finalPace100_25 = finalAvgSecs25 * (100 / distance);
+
+        // Ritmo medio del PB en 25m equivalente
+        let finalPbSecs25 = pbSeconds;
+        if (pbPool === "50m") {
+          finalPbSecs25 = pbSeconds - getConversionFactor100m(distPb.estilo) * (targetDist / 100);
+        }
+        const finalPbPace100_25 = finalPbSecs25 * (100 / targetDist);
+
+        // Porcentaje de velocidad respecto a la marca personal de la distancia
+        const percentage = (finalPbPace100_25 / finalPace100_25) * 100;
 
         dataPoints.push({
           dateStr: t.fecha,
           dateVal: new Date(t.fecha),
-          seconds: Math.round(pace100 * 10) / 10,
+          // Si es Ritmo, mostramos segundos de ritmo por 100m. Si es Zona, mostramos Porcentaje de velocidad.
+          seconds: isRhythm ? Math.round(finalPace100_25 * 10) / 10 : Math.round(percentage * 10) / 10,
           originalAverageSecs: avgSecs,
           pool: pool,
           series: t.series,
+          percentage: Math.round(percentage * 10) / 10,
+          pbPace100: Math.round(finalPbPace100_25 * 10) / 10,
         });
       }
     }
@@ -227,8 +283,10 @@ export default function Dashboard({ person }: DashboardProps) {
         originalAverageSecs: dp.originalAverageSecs,
         pool: dp.pool,
         series: dp.series,
+        percentage: dp.percentage,
+        pbPace100: dp.pbPace100,
       }));
-  }, [trainings, selectedStyle, selectedWorkType]);
+  }, [trainings, selectedStyle, selectedWorkType, pbs]);
 
   // Procesar entrenamientos para el gráfico de torta de intensidades
   const intensityData = useMemo(() => {
@@ -287,34 +345,15 @@ export default function Dashboard({ person }: DashboardProps) {
     "Ritmo de 1500": "#e9d5ff",
   };
 
+  const isRhythm = selectedWorkType.startsWith("Ritmo de ");
+
   const targetPaceSeconds = useMemo(() => {
-    if (pbs.length === 0) return null;
+    if (!isRhythm || pbs.length === 0) return null;
 
     const style = normalizeStyle(selectedStyle);
-    let targetPct = 0;
-    let targetDistance = 100;
-    let isRhythm = false;
+    const targetDistance = parseInt(selectedWorkType.replace("Ritmo de ", ""), 10);
 
-    if (selectedWorkType.startsWith("Ritmo de ")) {
-      isRhythm = true;
-      targetDistance = parseInt(selectedWorkType.replace("Ritmo de ", ""), 10);
-      targetPct = 100;
-    } else {
-      const zoneName = selectedWorkType.trim();
-      if (zoneName === "Crono") targetPct = 100;
-      else if (zoneName === "Velocidad") targetPct = 97.5;
-      else if (zoneName === "Anaeróbico") targetPct = 90.0;
-      else if (zoneName === "VO2Max") targetPct = 85.0;
-      else if (zoneName === "Aeróbico intenso") targetPct = 82.5;
-      else if (zoneName === "Aeróbico medio") targetPct = 77.5;
-      else if (zoneName === "Aeróbico ligero") targetPct = 70.0;
-      else if (zoneName === "Suave") targetPct = 60.0;
-      else targetPct = 60.0;
-    }
-
-    let pbToUse: PersonalBest | undefined;
-    
-    pbToUse = pbs.find(
+    let pbToUse = pbs.find(
       (pb) =>
         normalizeStyle(pb.estilo) === style &&
         pb.distancia === targetDistance &&
@@ -327,54 +366,69 @@ export default function Dashboard({ person }: DashboardProps) {
           pb.distancia === targetDistance
       );
     }
-    if (!pbToUse && !isRhythm) {
-      pbToUse = pbs.find(
-        (pb) =>
-          normalizeStyle(pb.estilo) === style &&
-          pb.distancia === 100
-      );
-      if (!pbToUse) {
-        pbToUse = pbs.find((pb) => normalizeStyle(pb.estilo) === style);
-      }
-    }
-    if (!pbToUse) {
-      pbToUse = pbs[0];
-    }
-
     if (!pbToUse) return null;
 
     const pbSeconds = parseSeconds(pbToUse.tiempo);
     if (!pbSeconds) return null;
 
     const pbPool = pbToUse.piscina.trim().toLowerCase();
-    let pbSecondsConverted = pbSeconds;
+    let finalPbSecs25 = pbSeconds;
     if (pbPool === "50m") {
-      const factor100m = getConversionFactor100m(pbToUse.estilo);
-      const factor = factor100m * (pbToUse.distancia / 100);
-      pbSecondsConverted = pbSeconds - factor;
+      finalPbSecs25 = pbSeconds - getConversionFactor100m(pbToUse.estilo) * (targetDistance / 100);
     }
+    const finalPbPace100_25 = finalPbSecs25 * (100 / targetDistance);
+    return Math.round(finalPbPace100_25 * 10) / 10;
+  }, [pbs, selectedStyle, selectedWorkType, isRhythm]);
 
-    const pbPace100 = pbSecondsConverted * (100 / pbToUse.distancia);
-    const targetPace = pbPace100 / (targetPct / 100);
-    return Math.round(targetPace * 10) / 10;
-  }, [pbs, selectedStyle, selectedWorkType]);
+  const targetPercentage = useMemo(() => {
+    if (isRhythm) return null;
+
+    const zoneName = selectedWorkType.trim();
+    if (zoneName === "Crono") return 100.0;
+    if (zoneName === "Velocidad") return 97.5;
+    if (zoneName === "Anaeróbico") return 90.0;
+    if (zoneName === "VO2Max") return 85.0;
+    if (zoneName === "Aeróbico intenso") return 82.5;
+    if (zoneName === "Aeróbico medio") return 77.5;
+    if (zoneName === "Aeróbico ligero") return 70.0;
+    if (zoneName === "Suave") return 60.0;
+    return 60.0;
+  }, [selectedWorkType, isRhythm]);
 
   const CustomDot = (props: any) => {
     const { cx, cy, payload } = props;
-    if (!targetPaceSeconds) {
-      return (
-        <circle
-          cx={cx}
-          cy={cy}
-          r={5}
-          fill="#38bdf8"
-          stroke="rgba(15,23,42,0.9)"
-          strokeWidth={2}
-        />
-      );
+    
+    let complies = false;
+    if (isRhythm) {
+      if (!targetPaceSeconds) {
+        return (
+          <circle
+            cx={cx}
+            cy={cy}
+            r={5}
+            fill="#38bdf8"
+            stroke="rgba(15,23,42,0.9)"
+            strokeWidth={2}
+          />
+        );
+      }
+      complies = payload.seconds <= targetPaceSeconds;
+    } else {
+      if (!targetPercentage) {
+        return (
+          <circle
+            cx={cx}
+            cy={cy}
+            r={5}
+            fill="#38bdf8"
+            stroke="rgba(15,23,42,0.9)"
+            strokeWidth={2}
+          />
+        );
+      }
+      complies = payload.percentage >= targetPercentage;
     }
 
-    const complies = payload.seconds <= targetPaceSeconds;
     const fillColor = complies ? "#10b981" : "#ef4444";
 
     return (
@@ -392,12 +446,21 @@ export default function Dashboard({ person }: DashboardProps) {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
-      const formattedTime = formatSeconds(data.seconds);
-      const originalTimeFormatted = formatSeconds(data.originalAverageSecs);
+      const distance = extractDistance(data.series);
       
+      if (!distance) return null;
+      
+      let finalAvgSecs25 = data.originalAverageSecs;
+      const style = normalizeStyle(selectedStyle);
+      if (data.pool === "50m") {
+        finalAvgSecs25 = data.originalAverageSecs - getConversionFactor100m(style) * (distance / 100);
+      }
+      const finalPace100_25 = finalAvgSecs25 * (100 / distance);
+      const paceActual25Str = formatSeconds(finalPace100_25);
+
       const calcDetails = data.pool === "50m"
-        ? `Se convirtió el ritmo de 50m (${originalTimeFormatted}) restando el factor de conversión para obtener el equivalente por cada 100m en 25m (${formattedTime}).`
-        : `Se calculó el ritmo medio por cada 100m en piscina de 25m (${formattedTime}) a partir del tiempo original (${originalTimeFormatted}) sin conversión.`;
+        ? `Se convirtió el ritmo de la serie en piscina de 50m a equivalente 25m: ${paceActual25Str}/100m (Original: ${formatSeconds(data.originalAverageSecs)} en piscina de 50m). Porcentaje de velocidad: ${data.percentage}% respecto a su PB de esa distancia (${formatSeconds(data.pbPace100)}/100m en 25m).`
+        : `Se calculó el ritmo medio por cada 100m en piscina de 25m: ${paceActual25Str}/100m (Original: ${formatSeconds(data.originalAverageSecs)} en piscina de 25m). Porcentaje de velocidad: ${data.percentage}% respecto a su PB de esa distancia (${formatSeconds(data.pbPace100)}/100m en 25m).`;
 
       return (
         <div className={styles.customTooltip}>
@@ -568,23 +631,38 @@ export default function Dashboard({ person }: DashboardProps) {
                         tickLine={false}
                         dy={10}
                       />
-                      <YAxis
+                       <YAxis
                         stroke="#64748b"
                         fontSize={11}
                         tickLine={false}
                         dx={-10}
                         domain={["auto", "auto"]}
-                        tickFormatter={(val) => formatSeconds(val)}
+                        tickFormatter={(val) => (isRhythm ? formatSeconds(val) : `${val}%`)}
                       />
                       <Tooltip content={<CustomTooltip />} />
-                      {targetPaceSeconds && (
+                      {isRhythm && targetPaceSeconds && (
                         <ReferenceLine
                           y={targetPaceSeconds}
                           stroke="#eab308"
                           strokeDasharray="4 4"
                           strokeWidth={2}
                           label={{
-                            value: `Ritmo teórico: ${formatSeconds(targetPaceSeconds)} (${selectedWorkType.startsWith("Ritmo") ? "100" : selectedWorkType === "Velocidad" ? "97.5" : selectedWorkType === "Anaeróbico" ? "90.0" : selectedWorkType === "VO2Max" ? "85.0" : selectedWorkType === "Aeróbico intenso" ? "82.5" : selectedWorkType === "Aeróbico medio" ? "77.5" : selectedWorkType === "Aeróbico ligero" ? "70.0" : selectedWorkType === "Crono" ? "100" : "60.0"}%)`,
+                            value: `Ritmo teórico: ${formatSeconds(targetPaceSeconds)} (100%)`,
+                            position: "top",
+                            fill: "#eab308",
+                            fontSize: 10,
+                            fontWeight: 600,
+                          }}
+                        />
+                      )}
+                      {!isRhythm && targetPercentage && (
+                        <ReferenceLine
+                          y={targetPercentage}
+                          stroke="#eab308"
+                          strokeDasharray="4 4"
+                          strokeWidth={2}
+                          label={{
+                            value: `Límite de la zona: ${targetPercentage}%`,
                             position: "top",
                             fill: "#eab308",
                             fontSize: 10,
