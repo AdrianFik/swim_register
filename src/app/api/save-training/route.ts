@@ -3,21 +3,23 @@ import { appendTraining, TrainingData } from "@/lib/sheets";
 
 interface SaveTrainingBody {
   personName: string;
-  data: TrainingData;
+  data: TrainingData[];
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body: SaveTrainingBody = await request.json();
 
-    if (!body.personName || !body.data) {
+    if (!body.personName || !body.data || !Array.isArray(body.data)) {
       return NextResponse.json(
-        { error: "Faltan datos: personName o data" },
+        { error: "Faltan datos: personName o data array" },
         { status: 400 }
       );
     }
 
-    await appendTraining(body.personName, body.data);
+    for (const block of body.data) {
+      await appendTraining(body.personName, block);
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

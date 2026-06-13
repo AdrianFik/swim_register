@@ -32,7 +32,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<TabType>("register");
   const [step, setStep] = useState<Step>("select");
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
-  const [trainingData, setTrainingData] = useState<TrainingData | null>(null);
+  const [trainingData, setTrainingData] = useState<TrainingData[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handlePersonSelect = useCallback((person: Person) => {
@@ -41,7 +41,7 @@ export default function Home() {
     setError(null);
   }, []);
 
-  const handleAudioResult = useCallback((data: TrainingData) => {
+  const handleAudioResult = useCallback((data: TrainingData[]) => {
     setTrainingData(data);
     setStep("preview");
     setError(null);

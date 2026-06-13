@@ -17,7 +17,7 @@ interface TrainingData {
 
 interface AudioRecorderProps {
   personName: string;
-  onResult: (data: TrainingData) => void;
+  onResult: (data: TrainingData[]) => void;
   onBack: () => void;
   onError: (message: string) => void;
 }
@@ -132,7 +132,7 @@ export default function AudioRecorder({
         throw new Error(data.error || "Error al procesar el audio");
       }
 
-      const trainingData: TrainingData = await res.json();
+      const trainingData: TrainingData[] = await res.json();
       onResult(trainingData);
     } catch (err) {
       onError(
