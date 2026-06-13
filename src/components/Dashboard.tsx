@@ -8,6 +8,7 @@ import {
   normalizeStyle,
   formatSeconds,
   getConversionFactor100m,
+  parseSeconds,
 } from "@/lib/zones";
 import {
   LineChart,
@@ -21,12 +22,22 @@ import {
   Pie,
   Cell,
   Legend,
+  ReferenceLine,
 } from "recharts";
 import { TrendingUp, Calendar, Compass, RefreshCw, BarChart2 } from "lucide-react";
 
 interface Person {
   name: string;
   role: string;
+}
+
+interface PersonalBest {
+  nombre: string;
+  estilo: string;
+  distancia: number;
+  tiempo: string;
+  fecha: string;
+  piscina: string;
 }
 
 interface TrainingData {
@@ -88,8 +99,9 @@ export default function Dashboard({ person }: DashboardProps) {
     isCoach ? "" : person.name
   );
 
-  // Historial de entrenamientos
+  // Historial de entrenamientos y marcas personales
   const [trainings, setTrainings] = useState<TrainingData[]>([]);
+  const [pbs, setPbs] = useState<PersonalBest[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -97,6 +109,26 @@ export default function Dashboard({ person }: DashboardProps) {
   const [selectedStyle, setSelectedStyle] = useState("crol");
   const [selectedWorkType, setSelectedWorkType] = useState("Ritmo de 200");
   const [chartType, setChartType] = useState<"trend" | "distribution">("trend");
+
+  // Cargar marcas personales (PBs) del nadador seleccionado
+  useEffect(() => {
+    if (!selectedSwimmerName) {
+      setPbs([]);
+      return;
+    }
+    async function fetchPbs() {
+      try {
+        const res = await fetch(`/api/marcas?personName=${encodeURIComponent(selectedSwimmerName)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setPbs(data);
+        }
+      } catch (err) {
+        console.error("Error loading PBs in dashboard:", err);
+      }
+    }
+    fetchPbs();
+  }, [selectedSwimmerName]);
 
   // Cargar nadadores si es coach
   useEffect(() => {
@@ -253,6 +285,135 @@ export default function Dashboard({ person }: DashboardProps) {
     "Ritmo de 400": "#c084fc",
     "Ritmo de 800": "#d8b4fe",
     "Ritmo de 1500": "#e9d5ff",
+  };
+
+  const targetPaceSeconds = useMemo(() => {
+    if (pbs.length === 0) return null;
+
+    const style = normalizeStyle(selectedStyle);
+    let targetPct = 0;
+    let targetDistance = 100;
+    let isRhythm = false;
+
+    if (selectedWorkType.startsWith("Ritmo de ")) {
+      isRhythm = true;
+      targetDistance = parseInt(selectedWorkType.replace("Ritmo de ", ""), 10);
+      targetPct = 100;
+    } else {
+      const zoneName = selectedWorkType.trim();
+      if (zoneName === "Crono") targetPct = 100;
+      else if (zoneName === "Velocidad") targetPct = 97.5;
+      else if (zoneName === "Anaeróbico") targetPct = 90.0;
+      else if (zoneName === "VO2Max") targetPct = 85.0;
+      else if (zoneName === "Aeróbico intenso") targetPct = 82.5;
+      else if (zoneName === "Aeróbico medio") targetPct = 77.5;
+      else if (zoneName === "Aeróbico ligero") targetPct = 70.0;
+      else if (zoneName === "Suave") targetPct = 60.0;
+      else targetPct = 60.0;
+    }
+
+    let pbToUse: PersonalBest | undefined;
+    
+    pbToUse = pbs.find(
+      (pb) =>
+        normalizeStyle(pb.estilo) === style &&
+        pb.distancia === targetDistance &&
+        pb.piscina.trim().toLowerCase() === "25m"
+    );
+    if (!pbToUse) {
+      pbToUse = pbs.find(
+        (pb) =>
+          normalizeStyle(pb.estilo) === style &&
+          pb.distancia === targetDistance
+      );
+    }
+    if (!pbToUse && !isRhythm) {
+      pbToUse = pbs.find(
+        (pb) =>
+          normalizeStyle(pb.estilo) === style &&
+          pb.distancia === 100
+      );
+      if (!pbToUse) {
+        pbToUse = pbs.find((pb) => normalizeStyle(pb.estilo) === style);
+      }
+    }
+    if (!pbToUse) {
+      pbToUse = pbs[0];
+    }
+
+    if (!pbToUse) return null;
+
+    const pbSeconds = parseSeconds(pbToUse.tiempo);
+    if (!pbSeconds) return null;
+
+    const pbPool = pbToUse.piscina.trim().toLowerCase();
+    let pbSecondsConverted = pbSeconds;
+    if (pbPool === "50m") {
+      const factor100m = getConversionFactor100m(pbToUse.estilo);
+      const factor = factor100m * (pbToUse.distancia / 100);
+      pbSecondsConverted = pbSeconds - factor;
+    }
+
+    const pbPace100 = pbSecondsConverted * (100 / pbToUse.distancia);
+    const targetPace = pbPace100 / (targetPct / 100);
+    return Math.round(targetPace * 10) / 10;
+  }, [pbs, selectedStyle, selectedWorkType]);
+
+  const CustomDot = (props: any) => {
+    const { cx, cy, payload } = props;
+    if (!targetPaceSeconds) {
+      return (
+        <circle
+          cx={cx}
+          cy={cy}
+          r={5}
+          fill="#38bdf8"
+          stroke="rgba(15,23,42,0.9)"
+          strokeWidth={2}
+        />
+      );
+    }
+
+    const complies = payload.seconds <= targetPaceSeconds;
+    const fillColor = complies ? "#10b981" : "#ef4444";
+
+    return (
+      <circle
+        cx={cx}
+        cy={cy}
+        r={6}
+        fill={fillColor}
+        stroke="rgba(15,23,42,0.9)"
+        strokeWidth={2}
+      />
+    );
+  };
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      const formattedTime = formatSeconds(data.seconds);
+      const originalTimeFormatted = formatSeconds(data.originalAverageSecs);
+      
+      const calcDetails = data.pool === "50m"
+        ? `Se convirtió el ritmo de 50m (${originalTimeFormatted}) restando el factor de conversión para obtener el equivalente por cada 100m en 25m (${formattedTime}).`
+        : `Se calculó el ritmo medio por cada 100m en piscina de 25m (${formattedTime}) a partir del tiempo original (${originalTimeFormatted}) sin conversión.`;
+
+      return (
+        <div className={styles.customTooltip}>
+          <div className={styles.tooltipDate}>Fecha: {label}</div>
+          <div className={styles.tooltipSection}>
+            <span className={styles.tooltipLabel}>Bloque del que procede:</span>
+            <span className={styles.tooltipValue}>{data.series}</span>
+          </div>
+          <div className={styles.tooltipSection}>
+            <span className={styles.tooltipLabel}>Cálculo realizado:</span>
+            <span className={styles.tooltipValue}>{calcDetails}</span>
+          </div>
+        </div>
+      );
+    }
+    return null;
   };
 
   return (
@@ -415,35 +576,28 @@ export default function Dashboard({ person }: DashboardProps) {
                         domain={["auto", "auto"]}
                         tickFormatter={(val) => formatSeconds(val)}
                       />
-                      <Tooltip
-                        contentStyle={{
-                          background: "rgba(15, 23, 42, 0.9)",
-                          border: "1px solid rgba(255, 255, 255, 0.1)",
-                          borderRadius: "12px",
-                          boxShadow: "0 10px 15px -3px rgba(0,0,0,0.3)",
-                        }}
-                        labelStyle={{ color: "#94a3b8", fontWeight: 600, marginBottom: "4px" }}
-                        itemStyle={{ color: "#38bdf8" }}
-                        labelFormatter={(label) => `Fecha: ${label}`}
-                        formatter={(value: any, name: any, props: any) => {
-                          const payload = props.payload;
-                          if (!payload) return [value, name];
-                          const formattedTime = formatSeconds(Number(value));
-                          const originalTimeFormatted = formatSeconds(payload.originalAverageSecs);
-                          const seriesStr = payload.series;
-                          const poolStr = payload.pool === "50m" ? "50m" : "25m";
-                          return [
-                            `${formattedTime} (original: ${originalTimeFormatted} en serie "${seriesStr}" en piscina de ${poolStr})`,
-                            "Paso por 100m (equiv. 25m)"
-                          ];
-                        }}
-                      />
+                      <Tooltip content={<CustomTooltip />} />
+                      {targetPaceSeconds && (
+                        <ReferenceLine
+                          y={targetPaceSeconds}
+                          stroke="#eab308"
+                          strokeDasharray="4 4"
+                          strokeWidth={2}
+                          label={{
+                            value: `Ritmo teórico: ${formatSeconds(targetPaceSeconds)} (${selectedWorkType.startsWith("Ritmo") ? "100" : selectedWorkType === "Velocidad" ? "97.5" : selectedWorkType === "Anaeróbico" ? "90.0" : selectedWorkType === "VO2Max" ? "85.0" : selectedWorkType === "Aeróbico intenso" ? "82.5" : selectedWorkType === "Aeróbico medio" ? "77.5" : selectedWorkType === "Aeróbico ligero" ? "70.0" : selectedWorkType === "Crono" ? "100" : "60.0"}%)`,
+                            position: "top",
+                            fill: "#eab308",
+                            fontSize: 10,
+                            fontWeight: 600,
+                          }}
+                        />
+                      )}
                       <Line
                         type="monotone"
                         dataKey="seconds"
                         stroke="#38bdf8"
                         strokeWidth={3}
-                        dot={{ fill: "#38bdf8", stroke: "rgba(15,23,42,0.9)", strokeWidth: 2, r: 6 }}
+                        dot={<CustomDot />}
                         activeDot={{ r: 8, strokeWidth: 0 }}
                         animationDuration={1500}
                       />
