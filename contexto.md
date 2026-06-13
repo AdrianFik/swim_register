@@ -86,16 +86,23 @@ El prompt en `gemini.ts` está optimizado para:
 
 ### 2. Estandarización de Zonas de Ritmo e Intensidad
 - Las intensidades y ritmos se comparan contra las mejores marcas personales (PBs) del nadador.
-- **Comparación por Distancia Específica**: El porcentaje de velocidad se calcula utilizando la marca personal de la **distancia exacta** de la serie (ej: si se nada 200m, se compara contra el PB de 200m del estilo; si no existe, escala a 100m, aplicando conversiones si difiere la piscina).
+- **Comparación por Distancia Específica**: El porcentaje de velocidad se calcula utilizando la marca personal de una distancia de referencia seleccionada rigurosamente según el tipo de trabajo:
+  - **Ritmos de Trabajo (Preferencia Absoluta)**: Si la intensidad incluye un ritmo (ej. `Ritmo de 200`), se usa siempre la marca personal de la distancia de dicho ritmo (`100`, `200`, `400`, `800` o `1500` metros).
+  - **Velocidad**: Se usa siempre la marca de **50m**.
+  - **Suave** y **Aeróbico ligero**: Se usa siempre la marca de **100m**.
+  - **Aeróbico medio**, **Aeróbico intenso** y **VO2Max**: Se usa la distancia de repetición individual de la serie (`repDistance`, ej: `400m` para `5x400`).
+  - **Anaeróbico**: Se usa la distancia total del bloque repetido (`blockDistance`, ej: `200m` para `4x50` o `5x(4x50)`).
+  - **Crono**: Se usa la distancia de repetición de la serie.
+  - **Lógica de Búsqueda y Fallback**: Si no existe marca registrada para la distancia objetivo, se busca robustamente la marca de 100m (o cualquier otra marca disponible) y se extrapola, aplicando factores de conversión si difiere el tipo de piscina (25m o 50m).
 - Las zonas se clasifican de acuerdo a los límites establecidos por el entrenador:
   - **Crono** (100%): Bloques constituidos por una sola repetición (ej: una serie única sin multiplicadores).
-  - **Velocidad**: >= 97.5% de la velocidad de su PB.
-  - **Anaeróbico**: >= 90.0% de su PB.
-  - **VO2Max**: >= 85.0% de su PB.
-  - **Aeróbico intenso**: >= 82.5% de su PB.
-  - **Aeróbico medio**: >= 77.5% de su PB.
-  - **Aeróbico ligero**: >= 70.0% de su PB.
-  - **Suave**: < 70.0% de su PB.
+  - **Velocidad**: >= 97.5% de la velocidad de su PB de 50m.
+  - **Anaeróbico**: >= 90.0% de su PB de la distancia del bloque.
+  - **VO2Max**: >= 85.0% de su PB de la distancia de repetición.
+  - **Aeróbico intenso**: >= 82.5% de su PB de la distancia de repetición.
+  - **Aeróbico medio**: >= 77.5% de su PB de la distancia de repetición.
+  - **Aeróbico ligero**: >= 70.0% de su PB de 100m.
+  - **Suave**: < 70.0% de su PB de 100m.
 - Adicionalmente, el sistema sugiere etiquetas de **Ritmo de carrera** (ej: `Ritmo de 100`, `Ritmo de 200`, `Ritmo de 400`, `Ritmo de 800`, `Ritmo de 1500`) cuando el paso medio de la serie está dentro de una tolerancia de +/- 3.5% del PB de esa distancia objetivo.
 
 ### 3. Dashboard Interactivo y Gráficos (Recharts)

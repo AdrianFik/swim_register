@@ -9,6 +9,8 @@ import {
   formatSeconds,
   getConversionFactor100m,
   parseSeconds,
+  getReferenceDistance,
+  findBestPB,
 } from "@/lib/zones";
 import {
   LineChart,
@@ -206,42 +208,16 @@ export default function Dashboard({ person }: DashboardProps) {
         t.intensidad.toLowerCase().includes(selectedWorkType.toLowerCase());
 
       if (matchesStyle && matchesWorkType && distance && avgSecs !== null) {
-        // La marca personal objetivo de este bloque debe ser de la misma distancia
-        const targetDist = isRhythm ? rhythmDistance : distance;
+        // La marca personal objetivo de este bloque debe ser de la distancia de referencia de la zona/ritmo
+        const targetDist = getReferenceDistance(selectedWorkType, distance, t.series) || distance;
 
-        // Buscar PB de esa distancia exacta y estilo
-        let distPb = pbs.find(
-          (pb) =>
-            normalizeStyle(pb.estilo) === style &&
-            pb.distancia === targetDist &&
-            pb.piscina.trim().toLowerCase() === pool
-        );
-        if (!distPb) {
-          distPb = pbs.find(
-            (pb) =>
-              normalizeStyle(pb.estilo) === style &&
-              pb.distancia === targetDist
-          );
-        }
+        // Buscar PB usando el helper compartido
+        const pbResult = findBestPB(pbs, style, targetDist, pool);
+        if (!pbResult) continue;
 
-        // Si no hay PB para esta distancia exacta, excluir este punto
-        if (!distPb) continue;
-
+        const { pb: distPb } = pbResult;
         const pbSeconds = parseSeconds(distPb.tiempo);
         if (!pbSeconds) continue;
-
-        // Convertir PB a base 25m si difiere
-        const pbPool = distPb.piscina.trim().toLowerCase();
-        let pbSecondsConverted = pbSeconds;
-        if (pbPool !== pool) {
-          const factor100m = getConversionFactor100m(distPb.estilo);
-          const factor = factor100m * (distPb.distancia / 100);
-          if (pbPool === "25m" && pool === "50m") {
-            pbSecondsConverted = pbSeconds + factor;
-          } else if (pbPool === "50m" && pool === "25m") {
-            pbSecondsConverted = pbSeconds - factor;
-          }
-        }
 
         // Ritmo medio de la serie en 25m equivalente
         let finalAvgSecs25 = avgSecs;
@@ -251,11 +227,12 @@ export default function Dashboard({ person }: DashboardProps) {
         const finalPace100_25 = finalAvgSecs25 * (100 / distance);
 
         // Ritmo medio del PB en 25m equivalente
+        const pbPool = distPb.piscina.trim().toLowerCase();
         let finalPbSecs25 = pbSeconds;
         if (pbPool === "50m") {
-          finalPbSecs25 = pbSeconds - getConversionFactor100m(distPb.estilo) * (targetDist / 100);
+          finalPbSecs25 = pbSeconds - getConversionFactor100m(distPb.estilo) * (distPb.distancia / 100);
         }
-        const finalPbPace100_25 = finalPbSecs25 * (100 / targetDist);
+        const finalPbPace100_25 = finalPbSecs25 * (100 / distPb.distancia);
 
         // Porcentaje de velocidad respecto a la marca personal de la distancia
         const percentage = (finalPbPace100_25 / finalPace100_25) * 100;
@@ -353,30 +330,19 @@ export default function Dashboard({ person }: DashboardProps) {
     const style = normalizeStyle(selectedStyle);
     const targetDistance = parseInt(selectedWorkType.replace("Ritmo de ", ""), 10);
 
-    let pbToUse = pbs.find(
-      (pb) =>
-        normalizeStyle(pb.estilo) === style &&
-        pb.distancia === targetDistance &&
-        pb.piscina.trim().toLowerCase() === "25m"
-    );
-    if (!pbToUse) {
-      pbToUse = pbs.find(
-        (pb) =>
-          normalizeStyle(pb.estilo) === style &&
-          pb.distancia === targetDistance
-      );
-    }
-    if (!pbToUse) return null;
+    const pbResult = findBestPB(pbs, style, targetDistance, "25m");
+    if (!pbResult) return null;
 
+    const { pb: pbToUse } = pbResult;
     const pbSeconds = parseSeconds(pbToUse.tiempo);
     if (!pbSeconds) return null;
 
     const pbPool = pbToUse.piscina.trim().toLowerCase();
     let finalPbSecs25 = pbSeconds;
     if (pbPool === "50m") {
-      finalPbSecs25 = pbSeconds - getConversionFactor100m(pbToUse.estilo) * (targetDistance / 100);
+      finalPbSecs25 = pbSeconds - getConversionFactor100m(pbToUse.estilo) * (pbToUse.distancia / 100);
     }
-    const finalPbPace100_25 = finalPbSecs25 * (100 / targetDistance);
+    const finalPbPace100_25 = finalPbSecs25 * (100 / pbToUse.distancia);
     return Math.round(finalPbPace100_25 * 10) / 10;
   }, [pbs, selectedStyle, selectedWorkType, isRhythm]);
 

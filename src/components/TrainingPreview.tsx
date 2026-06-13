@@ -136,7 +136,8 @@ export default function TrainingPreview({
         block.tiempos,
         block.estilos,
         pbs,
-        block.piscina
+        block.piscina,
+        block.intensidad
       );
       if (result) {
         newInfos[idx] = `Calculado: ${result.suggestedLabels.join(" + ")} (${result.percentage}% vel. ref. PB de ${result.pbUsed.distancia}m ${result.pbUsed.estilo}${result.scaled ? " extrapolado" : ""}${result.pbConverted ? ` conv. de ${result.pbUsed.piscina}` : ""})`;
@@ -158,18 +159,21 @@ export default function TrainingPreview({
       const next = [...prev];
       next[index] = { ...next[index], [key]: value };
       
-      // Si cambiaron los datos de cálculo, reactivar autocalculador para este bloque
-      if (["series", "tiempos", "estilos", "piscina"].includes(key)) {
+      // Si cambiaron los datos de cálculo o la intensidad, reactivar recalculador para este bloque
+      if (["series", "tiempos", "estilos", "piscina", "intensidad"].includes(key)) {
         const block = next[index];
         const result = calculateIntensityZone(
           block.series,
           block.tiempos,
           block.estilos,
           pbs,
-          block.piscina
+          block.piscina,
+          block.intensidad
         );
         if (result) {
-          block.intensidad = result.suggestedLabels.join(" + ");
+          if (key !== "intensidad") {
+            block.intensidad = result.suggestedLabels.join(" + ");
+          }
           setCalcZoneInfos((prevInfos) => {
             const nextInfos = [...prevInfos];
             nextInfos[index] = `Calculado: ${block.intensidad} (${result.percentage}% vel. ref. PB de ${result.pbUsed.distancia}m ${result.pbUsed.estilo}${result.scaled ? " extrapolado" : ""}${result.pbConverted ? ` conv. de ${result.pbUsed.piscina}` : ""})`;
