@@ -128,10 +128,10 @@ export function normalizeStyle(styleStr: string): string {
 export function getConversionFactor100m(styleStr: string): number {
   const style = normalizeStyle(styleStr);
   if (style === "crol") return 1.6;
-  if (style === "espalda") return 2.0;
-  if (style === "braza") return 2.0;
-  if (style === "mariposa") return 1.0;
-  return 1.65; // Promedio de los estilos para IM/Estilos
+  if (style === "espalda") return 2.5;
+  if (style === "braza") return 2.3;
+  if (style === "mariposa") return 1.3;
+  return 2.4; // Promedio de los estilos para IM/Estilos
 }
 
 /**
@@ -375,22 +375,17 @@ export function calculateIntensityZone(
         const pbSeconds = parseSeconds(pb.tiempo);
         if (pbSeconds) {
           const pbPool = pb.piscina.trim().toLowerCase();
-          let pbSecondsConverted = pbSeconds;
-          let pbConverted = false;
-          if (pbPool !== pool) {
-            const factor100m = getConversionFactor100m(pb.estilo);
-            const factor = factor100m * (pb.distancia / 100);
-            if (pbPool === "25m" && pool === "50m") {
-              pbSecondsConverted = pbSeconds + factor;
-              pbConverted = true;
-            } else if (pbPool === "50m" && pool === "25m") {
-              pbSecondsConverted = pbSeconds - factor;
-              pbConverted = true;
-            }
-          }
+          
+          const factor100m = getConversionFactor100m(style);
           const seriesPace100 = avgSeconds * (100 / distance);
-          const pbPace100 = pbSecondsConverted * (100 / pb.distancia);
-          const percentage = (pbPace100 / seriesPace100) * 100;
+          const seriesPace100_25 = seriesPace100 - (pool === "50m" ? factor100m : 0);
+          
+          const pbFactor100m = getConversionFactor100m(pb.estilo);
+          const pbPace100 = pbSeconds * (100 / pb.distancia);
+          const pbPace100_25 = pbPace100 - (pbPool === "50m" ? pbFactor100m : 0);
+          
+          const pbConverted = pbPool !== pool;
+          const percentage = (pbPace100_25 / seriesPace100_25) * 100;
           return {
             zone: "Crono",
             percentage: Math.round(percentage * 10) / 10,
@@ -419,22 +414,17 @@ export function calculateIntensityZone(
         const pbSecs = parseSeconds(resPb.pb.tiempo);
         if (pbSecs) {
           const pbPool = resPb.pb.piscina.trim().toLowerCase();
-          let pbSecsConverted = pbSecs;
-          let pbConverted = false;
-          if (pbPool !== pool) {
-            const factor100m = getConversionFactor100m(resPb.pb.estilo);
-            const factor = factor100m * (resPb.pb.distancia / 100);
-            if (pbPool === "25m" && pool === "50m") {
-              pbSecsConverted = pbSecs + factor;
-              pbConverted = true;
-            } else if (pbPool === "50m" && pool === "25m") {
-              pbSecsConverted = pbSecs - factor;
-              pbConverted = true;
-            }
-          }
+          
+          const factor100m = getConversionFactor100m(style);
           const seriesPace100 = avgSeconds * (100 / distance);
-          const pbPace100 = pbSecsConverted * (100 / resPb.pb.distancia);
-          const percentage = (pbPace100 / seriesPace100) * 100;
+          const seriesPace100_25 = seriesPace100 - (pool === "50m" ? factor100m : 0);
+          
+          const pbFactor100m = getConversionFactor100m(resPb.pb.estilo);
+          const pbPace100 = pbSecs * (100 / resPb.pb.distancia);
+          const pbPace100_25 = pbPace100 - (pbPool === "50m" ? pbFactor100m : 0);
+          
+          const pbConverted = pbPool !== pool;
+          const percentage = (pbPace100_25 / seriesPace100_25) * 100;
 
           if (percentage >= ch.threshold) {
             const suggestedLabels = [ch.zone];
@@ -445,18 +435,12 @@ export function calculateIntensityZone(
                 const distPbSecs = parseSeconds(distPbRes.pb.tiempo);
                 if (distPbSecs) {
                   const distPbPool = distPbRes.pb.piscina.trim().toLowerCase();
-                  let distPbSecsConverted = distPbSecs;
-                  if (distPbPool !== pool) {
-                    const factor100m = getConversionFactor100m(distPbRes.pb.estilo);
-                    const factor = factor100m * (distPbRes.pb.distancia / 100);
-                    if (distPbPool === "25m" && pool === "50m") {
-                      distPbSecsConverted = distPbSecs + factor;
-                    } else if (distPbPool === "50m" && pool === "25m") {
-                      distPbSecsConverted = distPbSecs - factor;
-                    }
-                  }
-                  const distPbPace100 = distPbSecsConverted * (100 / d);
-                  const diffPercent = Math.abs(seriesPace100 - distPbPace100) / distPbPace100;
+                  
+                  const distPbFactor100m = getConversionFactor100m(distPbRes.pb.estilo);
+                  const distPbPace100 = distPbSecs * (100 / d);
+                  const distPbPace100_25 = distPbPace100 - (distPbPool === "50m" ? distPbFactor100m : 0);
+                  
+                  const diffPercent = Math.abs(seriesPace100_25 - distPbPace100_25) / distPbPace100_25;
                   if (diffPercent <= 0.035) {
                     suggestedLabels.push(`Ritmo de ${d}`);
                   }
@@ -501,30 +485,18 @@ export function calculateIntensityZone(
   const pbSeconds = parseSeconds(pbToUse.tiempo);
   if (!pbSeconds) return null;
 
-  // Aplicar factor de conversión si las piscinas no coinciden
   const pbPool = pbToUse.piscina.trim().toLowerCase();
-  let pbSecondsConverted = pbSeconds;
-  let pbConverted = false;
-
-  if (pbPool !== pool) {
-    const factor100m = getConversionFactor100m(pbToUse.estilo);
-    const factor = factor100m * (pbToUse.distancia / 100);
-
-    if (pbPool === "25m" && pool === "50m") {
-      pbSecondsConverted = pbSeconds + factor;
-      pbConverted = true;
-    } else if (pbPool === "50m" && pool === "25m") {
-      pbSecondsConverted = pbSeconds - factor;
-      pbConverted = true;
-    }
-  }
-
-  // Convertir ritmos a base 100m para comparar de forma uniforme
+  
+  const factor100m = getConversionFactor100m(style);
   const seriesPace100 = avgSeconds * (100 / distance);
-  const pbPace100 = pbSecondsConverted * (100 / pbToUse.distancia);
-
-  // Calcular porcentaje de velocidad
-  const percentage = (pbPace100 / seriesPace100) * 100;
+  const seriesPace100_25 = seriesPace100 - (pool === "50m" ? factor100m : 0);
+  
+  const pbFactor100m = getConversionFactor100m(pbToUse.estilo);
+  const pbPace100 = pbSeconds * (100 / pbToUse.distancia);
+  const pbPace100_25 = pbPace100 - (pbPool === "50m" ? pbFactor100m : 0);
+  
+  const pbConverted = pbPool !== pool;
+  const percentage = (pbPace100_25 / seriesPace100_25) * 100;
 
   const suggestedLabels = currentIntensity
     ? currentIntensity.split("+").map((s) => s.trim()).filter(Boolean)
