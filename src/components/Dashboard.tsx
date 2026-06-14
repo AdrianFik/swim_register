@@ -182,16 +182,18 @@ export default function Dashboard({ person }: DashboardProps) {
     const dataPoints: {
       dateStr: string;
       dateVal: Date;
-      seconds: number; // Ritmo por 100m si es ritmo, Porcentaje de velocidad si es zona
+      seconds: number; // Ritmo por distancia de ritmo si es ritmo, Porcentaje de velocidad si es zona
       originalAverageSecs: number;
       pool: string;
       series: string;
       percentage: number;
       pbPace100: number;
+      targetDistance: number;
+      pbTimeTarget25: number;
+      seriesTimeTarget25: number;
     }[] = [];
 
     const isRhythm = selectedWorkType.startsWith("Ritmo de ");
-    const rhythmDistance = isRhythm ? parseInt(selectedWorkType.replace("Ritmo de ", ""), 10) : 0;
 
     for (const t of trainings) {
       if (!t.fecha || !t.series || !t.tiempos) continue;
@@ -237,16 +239,22 @@ export default function Dashboard({ person }: DashboardProps) {
         // Porcentaje de velocidad respecto a la marca personal de la distancia
         const percentage = (finalPbPace100_25 / finalPace100_25) * 100;
 
+        // Tiempo de la serie a la distancia del ritmo
+        const seriesTimeTarget25 = finalPace100_25 * (targetDist / 100);
+
         dataPoints.push({
           dateStr: t.fecha,
           dateVal: new Date(t.fecha),
-          // Si es Ritmo, mostramos segundos de ritmo por 100m. Si es Zona, mostramos Porcentaje de velocidad.
-          seconds: isRhythm ? Math.round(finalPace100_25 * 10) / 10 : Math.round(percentage * 10) / 10,
+          // Si es Ritmo, mostramos segundos de la distancia del ritmo. Si es Zona, mostramos Porcentaje de velocidad.
+          seconds: isRhythm ? Math.round(seriesTimeTarget25 * 10) / 10 : Math.round(percentage * 10) / 10,
           originalAverageSecs: avgSecs,
           pool: pool,
           series: t.series,
           percentage: Math.round(percentage * 10) / 10,
           pbPace100: Math.round(finalPbPace100_25 * 10) / 10,
+          targetDistance: targetDist,
+          pbTimeTarget25: Math.round(finalPbSecs25 * 10) / 10,
+          seriesTimeTarget25: Math.round(seriesTimeTarget25 * 10) / 10,
         });
       }
     }
@@ -262,6 +270,9 @@ export default function Dashboard({ person }: DashboardProps) {
         series: dp.series,
         percentage: dp.percentage,
         pbPace100: dp.pbPace100,
+        targetDistance: dp.targetDistance,
+        pbTimeTarget25: dp.pbTimeTarget25,
+        seriesTimeTarget25: dp.seriesTimeTarget25,
       }));
   }, [trainings, selectedStyle, selectedWorkType, pbs]);
 
@@ -342,8 +353,7 @@ export default function Dashboard({ person }: DashboardProps) {
     if (pbPool === "50m") {
       finalPbSecs25 = pbSeconds - getConversionFactor100m(pbToUse.estilo) * (pbToUse.distancia / 100);
     }
-    const finalPbPace100_25 = finalPbSecs25 * (100 / pbToUse.distancia);
-    return Math.round(finalPbPace100_25 * 10) / 10;
+    return Math.round(finalPbSecs25 * 10) / 10;
   }, [pbs, selectedStyle, selectedWorkType, isRhythm]);
 
   const targetPercentage = useMemo(() => {
@@ -424,9 +434,20 @@ export default function Dashboard({ person }: DashboardProps) {
       const finalPace100_25 = finalAvgSecs25 * (100 / distance);
       const paceActual25Str = formatSeconds(finalPace100_25);
 
-      const calcDetails = data.pool === "50m"
-        ? `Se convirtió el ritmo de la serie en piscina de 50m a equivalente 25m: ${paceActual25Str}/100m (Original: ${formatSeconds(data.originalAverageSecs)} en piscina de 50m). Porcentaje de velocidad: ${data.percentage}% respecto a su PB de esa distancia (${formatSeconds(data.pbPace100)}/100m en 25m).`
-        : `Se calculó el ritmo medio por cada 100m en piscina de 25m: ${paceActual25Str}/100m (Original: ${formatSeconds(data.originalAverageSecs)} en piscina de 25m). Porcentaje de velocidad: ${data.percentage}% respecto a su PB de esa distancia (${formatSeconds(data.pbPace100)}/100m en 25m).`;
+      let calcDetails = "";
+      if (isRhythm) {
+        const timeActualTargetStr = formatSeconds(data.seriesTimeTarget25);
+        const timePbTargetStr = formatSeconds(data.pbTimeTarget25);
+        const targetDist = data.targetDistance;
+
+        calcDetails = data.pool === "50m"
+          ? `Se convirtió el tiempo de la serie en piscina de 50m a equivalente 25m para ${targetDist}m: ${timeActualTargetStr} (Original: ${formatSeconds(data.originalAverageSecs)} por repetición). PB de referencia de ${targetDist}m en 25m: ${timePbTargetStr}. Porcentaje de velocidad: ${data.percentage}%.`
+          : `Se calculó el tiempo equivalente de la serie para ${targetDist}m en 25m: ${timeActualTargetStr} (Original: ${formatSeconds(data.originalAverageSecs)} por repetición). PB de referencia de ${targetDist}m en 25m: ${timePbTargetStr}. Porcentaje de velocidad: ${data.percentage}%.`;
+      } else {
+        calcDetails = data.pool === "50m"
+          ? `Se convirtió el ritmo de la serie en piscina de 50m a equivalente 25m: ${paceActual25Str}/100m (Original: ${formatSeconds(data.originalAverageSecs)} en piscina de 50m). Porcentaje de velocidad: ${data.percentage}% respecto a su PB de esa distancia (${formatSeconds(data.pbPace100)}/100m en 25m).`
+          : `Se calculó el ritmo medio por cada 100m en piscina de 25m: ${paceActual25Str}/100m (Original: ${formatSeconds(data.originalAverageSecs)} en piscina de 25m). Porcentaje de velocidad: ${data.percentage}% respecto a su PB de esa distancia (${formatSeconds(data.pbPace100)}/100m en 25m).`;
+      }
 
       return (
         <div className={styles.customTooltip}>

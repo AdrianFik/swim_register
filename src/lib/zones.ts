@@ -211,14 +211,16 @@ export function getReferenceDistance(
   // 2. Zonas de intensidad
   if (cleanIntensity.includes("velocidad")) return 50;
   
-  if (cleanIntensity.includes("anaeróbico") || cleanIntensity.includes("anaerobico")) {
+  if (
+    cleanIntensity.includes("anaeróbico") || cleanIntensity.includes("anaerobico") ||
+    cleanIntensity.includes("vo2max")
+  ) {
     const innerBlock = getInnerBlockString(seriesStr);
     const blockDist = calculateBlockDistance(innerBlock);
     return blockDist || repDistance;
   }
   
   if (
-    cleanIntensity.includes("vo2max") ||
     cleanIntensity.includes("aeróbico intenso") || cleanIntensity.includes("aerobico intenso") ||
     cleanIntensity.includes("aeróbico medio") || cleanIntensity.includes("aerobico medio")
   ) {
@@ -266,35 +268,6 @@ export function findBestPB(
   // 2. Distancia objetivo, cualquier piscina
   pb = search(targetDistance);
   if (pb) return { pb, scaled: false };
-
-  // 3. 100m PB, misma piscina (escalar)
-  pb = search(100, normalizedPool);
-  if (pb) return { pb, scaled: true };
-
-  // 4. 100m PB, cualquier piscina (escalar)
-  pb = search(100);
-  if (pb) return { pb, scaled: true };
-
-  // 5. Cualquier PB del mismo estilo, misma piscina (escalar)
-  pb = pbs.find((pb) => normalizeStyle(pb.estilo) === normalizedStyle && pb.piscina.trim().toLowerCase() === normalizedPool);
-  if (pb) return { pb, scaled: true };
-
-  // 6. Cualquier PB del mismo estilo, cualquier piscina (escalar)
-  pb = pbs.find((pb) => normalizeStyle(pb.estilo) === normalizedStyle);
-  if (pb) return { pb, scaled: true };
-
-  // 7. 100m Crol PB, misma piscina (escalar universal)
-  pb = pbs.find((pb) => normalizeStyle(pb.estilo) === "crol" && pb.distancia === 100 && pb.piscina.trim().toLowerCase() === normalizedPool);
-  if (pb) return { pb, scaled: true };
-
-  // 8. 100m Crol PB, cualquier piscina
-  pb = pbs.find((pb) => normalizeStyle(pb.estilo) === "crol" && pb.distancia === 100);
-  if (pb) return { pb, scaled: true };
-
-  // 9. Cualquier PB
-  if (pbs.length > 0) {
-    return { pb: pbs[0], scaled: true };
-  }
 
   return null;
 }
