@@ -31,13 +31,18 @@ REGLAS CRÍTICAS DE EXTRACCIÓN Y DIVISIÓN:
    - Ejemplo erróneo a evitar: Traducir "10.4 segundos" a "10x25" o "24.6 segundos" a "24x6".
    - Los tiempos cronometrados pertenecen exclusivamente al campo "tiempos" y la estructura de la serie (repeticiones y metros) pertenece exclusivamente al campo "series".
 
-3. MÚLTIPLES BLOQUES:
+3. MÚLTIPLES BLOQUES Y DESGLOSE POR TIEMPOS:
    - Si el audio describe múltiples repeticiones de bloques con estilos diferentes (ej: "Bloque 1 mariposa ... Bloque 2 crol"), devuélvelos como objetos independientes.
    - Ejemplo: "2 veces (25 mariposa más 50 crol), haciendo el primer bloque de mariposa 25 en 10.4 y 50 en 25.7, y el segundo de crol 25 en 10.6 y 50 en 24.6" se traduce en 4 objetos JSON independientes:
      1. { "series": "1x25", "estilos": "mariposa", "tiempos": "10.4" }
      2. { "series": "1x50", "estilos": "mariposa", "tiempos": "25.7" }
      3. { "series": "1x25", "estilos": "crol", "tiempos": "10.6" }
      4. { "series": "1x50", "estilos": "crol", "tiempos": "24.6" }
+
+4. COINCIDENCIA DE MULTIPLICADORES AL DESGLOSAR POR TIEMPOS INDIVIDUALES:
+   - Si un bloque repetido se divide en filas/objetos separados porque se registran tiempos específicos o estilos para cada bloque individual, cada objeto resultante representa una única ejecución real. Por lo tanto, el multiplicador externo de repetición (ej: "2x") NO debe multiplicarse ni aplicarse en el campo "series" de los objetos resultantes. Cada uno debe llevar "1xDistancia" (ej: "1x25" o "1x50").
+   - NUNCA devuelvas "2x(1x25)" si el objeto solo contiene un único tiempo individual (ej: "10.4") registrado para ese bloque específico.
+   - Si no hay tiempos individuales y se mantiene la agrupación, entonces sí puedes conservar el multiplicador (ej: "2x(1x25)").
 
 Estructura de cada objeto en el array JSON:
 1. fecha: string (YYYY-MM-DD). Si el audio menciona "ayer", "anteayer", "el lunes", "esta mañana", etc., calcula y ajusta la fecha tomando como base la fecha de referencia. Si no hay referencias temporales, usa la fecha de referencia. Debe replicarse en todos los bloques.
