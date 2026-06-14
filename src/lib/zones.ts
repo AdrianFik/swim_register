@@ -190,6 +190,19 @@ export function calculateBlockDistance(blockStr: string): number | null {
 }
 
 /**
+ * Normaliza un texto de intensidad para realizar comparaciones robustas.
+ * Elimina acentos, espacios y pasa a minúsculas.
+ */
+export function normalizeIntensity(intensityStr: string): string {
+  if (!intensityStr) return "";
+  return intensityStr
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Quitar acentos
+    .replace(/\s+/g, ""); // Quitar todos los espacios
+}
+
+/**
  * Obtiene la distancia de referencia para un ritmo o zona de intensidad dada.
  */
 export function getReferenceDistance(
@@ -199,21 +212,21 @@ export function getReferenceDistance(
 ): number | null {
   if (!intensity) return repDistance;
 
-  const cleanIntensity = intensity.toLowerCase();
+  const norm = normalizeIntensity(intensity);
 
   // 1. Prioridad: Ritmos específicos
-  if (cleanIntensity.includes("ritmo de 100")) return 100;
-  if (cleanIntensity.includes("ritmo de 200")) return 200;
-  if (cleanIntensity.includes("ritmo de 400")) return 400;
-  if (cleanIntensity.includes("ritmo de 800")) return 800;
-  if (cleanIntensity.includes("ritmo de 1500")) return 1500;
+  if (norm.includes("ritmode100")) return 100;
+  if (norm.includes("ritmode200")) return 200;
+  if (norm.includes("ritmode400")) return 400;
+  if (norm.includes("ritmode800")) return 800;
+  if (norm.includes("ritmode1500")) return 1500;
 
   // 2. Zonas de intensidad
-  if (cleanIntensity.includes("velocidad")) return 50;
+  if (norm.includes("velocidad")) return 50;
   
   if (
-    cleanIntensity.includes("anaeróbico") || cleanIntensity.includes("anaerobico") ||
-    cleanIntensity.includes("vo2max")
+    norm.includes("anaerobico") ||
+    norm.includes("vo2max")
   ) {
     const innerBlock = getInnerBlockString(seriesStr);
     const blockDist = calculateBlockDistance(innerBlock);
@@ -221,20 +234,20 @@ export function getReferenceDistance(
   }
   
   if (
-    cleanIntensity.includes("aeróbico intenso") || cleanIntensity.includes("aerobico intenso") ||
-    cleanIntensity.includes("aeróbico medio") || cleanIntensity.includes("aerobico medio")
+    norm.includes("aerobicointenso") ||
+    norm.includes("aerobicomedio")
   ) {
     return repDistance;
   }
   
   if (
-    cleanIntensity.includes("aeróbico ligero") || cleanIntensity.includes("aerobico ligero") ||
-    cleanIntensity.includes("suave")
+    norm.includes("aerobicoligero") ||
+    norm.includes("suave")
   ) {
     return 100;
   }
 
-  if (cleanIntensity.includes("crono")) return repDistance;
+  if (norm.includes("crono")) return repDistance;
 
   return repDistance;
 }

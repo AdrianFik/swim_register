@@ -11,6 +11,7 @@ import {
   parseSeconds,
   getReferenceDistance,
   findBestPB,
+  normalizeIntensity,
 } from "@/lib/zones";
 import {
   LineChart,
@@ -207,7 +208,7 @@ export default function Dashboard({ person }: DashboardProps) {
       const matchesStyle = style === selectedStyle;
       const matchesWorkType =
         t.intensidad &&
-        t.intensidad.toLowerCase().includes(selectedWorkType.toLowerCase());
+        normalizeIntensity(t.intensidad).includes(normalizeIntensity(selectedWorkType));
 
       if (matchesStyle && matchesWorkType && distance && avgSecs !== null) {
         // La marca personal objetivo de este bloque debe ser de la distancia de referencia de la zona/ritmo
@@ -301,12 +302,12 @@ export default function Dashboard({ person }: DashboardProps) {
           "Suave",
           "Crono",
         ];
-        const found = allClosedLabels.find((l) => l.toLowerCase() === part.toLowerCase());
+        const found = allClosedLabels.find((l) => normalizeIntensity(l) === normalizeIntensity(part));
         if (found) {
           matched = found;
         } else {
           matched = part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
-          if (matched.toLowerCase() === "vo2max") matched = "VO2Max";
+          if (normalizeIntensity(matched) === "vo2max") matched = "VO2Max";
         }
         counts[matched] = (counts[matched] || 0) + 1;
       }
