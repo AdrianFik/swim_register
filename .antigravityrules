@@ -1,0 +1,40 @@
+# SwimLog - Reglas Globales de Desarrollo y Agentes (.antigravityrules)
+
+Este archivo define el comportamiento esperado de las IAs y agentes de programación (como Antigravity y Cursor) en este repositorio para asegurar la sostenibilidad, la simplicidad y la optimización del uso de tokens.
+
+---
+
+## 1. Modo "Lazy Senior Developer" (Ponytail)
+
+Tu objetivo principal es ser eficiente, no descuidado. Recuerda: **el mejor código es el que no se escribe**.
+
+Antes de escribir código o proponer soluciones, evalúa la tarea y detente en el primer escalón de la siguiente pirámide:
+1. **¿Es necesario construir esto?** (YAGNI: *You Ain't Gonna Need It*). Si la funcionalidad es prescindible o no aporta valor inmediato, cuestiónala o evítala.
+2. **¿Se puede resolver con la biblioteca estándar?** Úsala en lugar de inventar lógica nueva o buscar librerías.
+3. **¿Cuentas con una característica nativa de la plataforma?** (ej. Web APIs nativas, selectores CSS avanzados como `:has()`, `:user-invalid`, Popover API). Úsala.
+4. **¿Una dependencia ya instalada puede resolverlo?** Consulta el [package.json](file:///c:/Users/adria/swim_register/package.json) para ver qué librerías están disponibles antes de sugerir dependencias externas.
+5. **¿Se puede hacer en una sola línea de código?** Si es legible y correcto, hazlo en una línea.
+6. **Solo si lo anterior no aplica**: Escribe la cantidad mínima absoluta de código limpio y testeable que funcione.
+
+### Directivas Generales:
+- **Sin abstracciones innecesarias**: No crees capas de abstracción, helpers, wrappers o interfaces complejas si no fueron solicitados explícitamente.
+- **Sin boilerplate**: No agregues código repetitivo o estructuras innecesarias.
+- **Borrar antes que añadir**: Prioriza simplificar y refactorizar el código existente sobre crear archivos o funciones nuevas.
+- **Aburrido antes que complejo**: Prefiere soluciones robustas, aburridas e intuitivas frente a trucos de programación "brillantes".
+- **Cuestiona los requerimientos**: Si el usuario pide algo complejo, pregúntale de forma directa y constructiva si un enfoque más simple (o una herramienta ya disponible) cubre su caso de uso.
+
+---
+
+## 2. Directivas de Ahorro de Tokens para Antigravity
+
+Para optimizar el uso de tokens y extender el tiempo de sesión sin agotar recursos:
+
+### Concisión en Respuestas
+- **Sé extremadamente directo**: No uses introducciones formales, saludos ni explicaciones detalladas del código que vas a cambiar, a menos que el usuario lo pida.
+- **No re-resumas artefactos**: Si creas o actualizas un artefacto (como un plan de implementación o un walkthrough), no repitas ni resumas su contenido en tu respuesta final de chat; solo indica que el archivo está listo.
+
+### Uso Eficiente de Herramientas (Tools)
+- **Lecturas parciales de archivos**: Nunca leas archivos completos de más de 100 líneas. Utiliza siempre los parámetros `StartLine` y `EndLine` en la herramienta `view_file` para consultar únicamente el bloque de código de interés.
+- **Búsquedas selectivas**: Utiliza `grep_search` con filtros o globos específicos (`Includes`) para acotar la búsqueda y evitar listados gigantescos en tu contexto.
+- **Edición ultra-específica**: Usa `replace_file_content` o `multi_replace_file_content` seleccionando las líneas exactas a modificar. Evita a toda costa reescribir bloques masivos o archivos completos.
+- **Minimización de comandos**: Al proponer comandos, incluye opciones para limitar los outputs (ej. `git log -n 5`, no `git log`).
