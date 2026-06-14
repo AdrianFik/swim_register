@@ -22,6 +22,8 @@ test.describe("SwimLog Mobile Flow E2E Tests", () => {
             { nombre: "Adrian", estilo: "crol", distancia: 100, tiempo: "1:00.0", fecha: "2026-01-01", piscina: "25m" },
             { nombre: "Adrian", estilo: "crol", distancia: 50, tiempo: "28.0", fecha: "2026-01-01", piscina: "25m" },
             { nombre: "Adrian", estilo: "crol", distancia: 200, tiempo: "2:10.0", fecha: "2026-01-01", piscina: "25m" },
+            { nombre: "Adrian", estilo: "mariposa", distancia: 25, tiempo: "12.0", fecha: "2026-01-01", piscina: "25m" },
+            { nombre: "Adrian", estilo: "mariposa", distancia: 50, tiempo: "26.0", fecha: "2026-01-01", piscina: "25m" },
           ]),
         });
       });
@@ -51,14 +53,47 @@ test.describe("SwimLog Mobile Flow E2E Tests", () => {
           body: JSON.stringify([
             {
               fecha: "2026-06-14",
-              series: "4x50 crol",
-              estilos: "crol",
-              tiempos: "32.5",
-              intensidad: "VO2Max",
+              series: "1x25",
+              estilos: "mariposa",
+              tiempos: "10.4",
+              intensidad: "Crono",
               material: "Sin material",
               pulso: "160 ppm",
-              notes: "Entrenamiento de prueba mockeado",
-              piscina: "50m",
+              notes: "Bloque 1 - 25 mariposa",
+              piscina: "25m",
+            },
+            {
+              fecha: "2026-06-14",
+              series: "1x50",
+              estilos: "mariposa",
+              tiempos: "25.7",
+              intensidad: "Crono",
+              material: "Sin material",
+              pulso: "160 ppm",
+              notes: "Bloque 1 - 50 mariposa",
+              piscina: "25m",
+            },
+            {
+              fecha: "2026-06-14",
+              series: "1x25",
+              estilos: "crol",
+              tiempos: "10.6",
+              intensidad: "Crono",
+              material: "Sin material",
+              pulso: "165 ppm",
+              notes: "Bloque 2 - 25 crol",
+              piscina: "25m",
+            },
+            {
+              fecha: "2026-06-14",
+              series: "1x50",
+              estilos: "crol",
+              tiempos: "24.6",
+              intensidad: "Crono",
+              material: "Sin material",
+              pulso: "165 ppm",
+              notes: "Bloque 2 - 50 crol",
+              piscina: "25m",
             },
           ]),
         });
@@ -71,9 +106,14 @@ test.describe("SwimLog Mobile Flow E2E Tests", () => {
       const previewHeader = page.locator("text=Revisa los datos");
       await expect(previewHeader).toBeVisible();
 
-      // 8. Verificar cálculos matemáticos del preview (4x50 crol a 32.5s en 50m comparado con 200m PB de 2:10.0)
-      const calcText = page.locator("text=Calculado: VO2Max (102.5% vel. ref. PB de 200m crol");
-      await expect(calcText).toBeVisible();
+      // 8. Verificar cálculos matemáticos del preview para los diferentes bloques
+      // Bloque 1 (25m mariposa): tempo 10.4s vs PB 12.0s -> 115.4%
+      const calcText1 = page.locator("text=Calculado: Crono (115.4% vel. ref. PB de 25m mariposa");
+      await expect(calcText1).toBeVisible();
+
+      // Bloque 4 (50m crol): tempo 24.6s vs PB 28.0s -> 113.8%
+      const calcText4 = page.locator("text=Calculado: Crono (113.8% vel. ref. PB de 50m crol");
+      await expect(calcText4).toBeVisible();
 
       // 9. Mockear guardado en Google Sheets
       await page.route("**/api/save-training", async (route) => {
