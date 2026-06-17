@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { useSessionState, RepCell, GeminiImportItem, groupSwimmerReps } from "@/lib/sessionContext";
+import { useSessionState, RepCell, GeminiImportItem, groupSwimmerReps, transformGridToSheets } from "@/lib/sessionContext";
 import { extractDistance, normalizeStyle } from "@/lib/zones";
 import styles from "./SessionGrid.module.css";
 
@@ -202,21 +202,15 @@ export default function SessionGrid() {
       // Iterar por nadador y enviar sus filas agrupadas
       for (const name of swimmersWithData) {
         const swimmerCells = grid[name] || [];
-        const grouped = groupSwimmerReps(swimmerCells, defaultStyle, defaultMaterial);
+        const trainingDataList = transformGridToSheets(
+          swimmerCells,
+          config,
+          distance,
+          defaultStyle,
+          defaultMaterial
+        );
 
-        if (grouped.length === 0) continue;
-
-        const trainingDataList = grouped.map((group) => ({
-          fecha: config.date,
-          series: `${group.count}x${distance}`,
-          estilos: group.style,
-          tiempos: group.times.join(", "),
-          intensidad: config.intensity,
-          material: group.material,
-          pulso: "",
-          notas: `Sesión Grupal. Bloque base: ${config.blockDescription}`,
-          piscina: config.pool,
-        }));
+        if (trainingDataList.length === 0) continue;
 
         const res = await fetch("/api/save-training", {
           method: "POST",
@@ -319,6 +313,7 @@ export default function SessionGrid() {
                     return (
                       <td key={idx} className={styles.tdRepCell}>
                         <button
+                          id={`cell-${name.replace(/\s+/g, "-").toLowerCase()}-${idx}`}
                           className={`${styles.cellBtn} ${hasTime ? styles.cellFilled : styles.cellEmpty} ${isCustom ? styles.cellCustom : ""}`}
                           onClick={() => handleOpenEdit(name, idx)}
                           title={isCustom ? `Estilo: ${cell.style || defaultStyle}, Mat: ${cell.material || defaultMaterial}` : undefined}

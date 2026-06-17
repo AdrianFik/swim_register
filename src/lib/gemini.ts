@@ -166,8 +166,8 @@ REGLAS CRÍTICAS DE EXTRACCIÓN:
 1. Identifica qué nadador o nadadores se mencionan en la grabación de voz y los tiempos de repetición asociados a cada uno.
 2. Mapea nombres de forma inteligente. Si el audio dice un apodo o nombre parcial (ej: "Adri" o "Fik"), compáralo con la lista de nadadores activos y asígnalo al nombre oficial correspondiente (ej: "Adrián Fik"). Si no coincide con ninguno, ignóralo o no lo incluyes.
 3. Extrae los tiempos individuales en orden cronológico tal como se mencionan para cada nadador.
-4. REGRESA LOS TIEMPOS EXACTAMENTE COMO SE ESCUCHAN, SIN INTENTAR ADIVINAR O CORREGIR LOS TIEMPOS POR LÓGICA MATEMÁTICA DE LA DISTANCIA DEL BLOQUE. Por ejemplo, si el bloque es de 100 metros y el nadador registró un tiempo de "quince" segundos (que podría ser 15 segundos reales o un parcial de 15), debes registrar exactamente "15" o "15s" en lugar de corregirlo mentalmente a "1:15" por asumir que no se puede nadar 100m en 15s. Registra literalmente lo escuchado.
-5. Los tiempos deben ser representados como cadenas de texto en formato limpio (ej: "1:04.5", "32.5", "1:12.3", "58.9" o "15").
+4. APLICA LA LÓGICA MATEMÁTICA Y DE RENDIMIENTO DE NATACIÓN CRUZADA CON LA CONFIGURACIÓN DEL BLOQUE (especialmente la distancia) PARA CORREGIR ALUCINACIONES ACÚSTICAS O ABREVIACIONES EN LA GRABACIÓN. Por ejemplo, si la distancia del bloque es de 100 metros y se escucha que el nadador hizo "quince" (o "quince segundos"), debes interpretar y corregir ese tiempo a "1:15" (un minuto y quince segundos), ya que es físicamente imposible nadar 100 metros en 15 segundos. Sin embargo, si la distancia del bloque es de 50 metros o menor, un tiempo de "quince" es perfectamente viable y debes dejarlo como "15" o "15s". Utiliza este razonamiento para resolver discrepancias acústicas o atajos de voz que producirían marcas incoherentes.
+5. Los tiempos deben ser representados como cadenas de texto en formato limpio (ej: "1:04.5", "32.5", "1:12.3", "58.9" o "1:15").
 6. OPCIONAL: Si para una repetición específica se menciona explícitamente un estilo de natación (ej: "crol", "espalda", "mariposa", "braza", "estilos") o material (ej: "aletas", "palas", "tabla", "pull-buoy") que sea diferente al resto o digno de mención, puedes registrarlo en los arrays opcionales "estilos" o "materiales" correspondientes a esa posición. Si no se especifican para cada repetición, no incluyas estos campos o déjalos vacíos.
 
 Estructura de cada objeto en el array JSON resultante:
@@ -180,12 +180,12 @@ Estructura de cada objeto en el array JSON resultante:
   }
 ]
 
-Ejemplo de audio: "Adrián hizo 1:12, 15 y 1:13. Juan hizo 1:15 con aletas."
+Ejemplo de audio: "Adrián hizo 1:12, quince y 1:13. Juan hizo 1:15 con aletas." (para un bloque de 100 metros)
 Resultado JSON esperado:
 [
   { 
     "nombre": "Adrián Fik", 
-    "tiempos": ["1:12", "15", "1:13"] 
+    "tiempos": ["1:12", "1:15", "1:13"] 
   },
   { 
     "nombre": "Juan Pérez", 

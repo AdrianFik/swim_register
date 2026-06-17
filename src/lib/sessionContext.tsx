@@ -80,6 +80,39 @@ export function groupSwimmerReps(
   return groups;
 }
 
+export interface SheetsRow {
+  fecha: string;
+  series: string;
+  estilos: string;
+  tiempos: string;
+  intensidad: string;
+  material: string;
+  pulso: string;
+  notas: string;
+  piscina: string;
+}
+
+export function transformGridToSheets(
+  cells: RepCell[],
+  config: SessionConfig,
+  distance: number,
+  defaultStyle: string,
+  defaultMaterial: string = "Sin material"
+): SheetsRow[] {
+  const grouped = groupSwimmerReps(cells, defaultStyle, defaultMaterial);
+  return grouped.map((group) => ({
+    fecha: config.date,
+    series: `${group.count}x${distance}`,
+    estilos: group.style,
+    tiempos: group.times.join(", "),
+    intensidad: config.intensity,
+    material: group.material,
+    pulso: "",
+    notas: `Sesión Grupal. Bloque base: ${config.blockDescription}`,
+    piscina: config.pool,
+  }));
+}
+
 interface SessionContextType {
   state: SessionState;
   initSession: (config: SessionConfig, swimmers: string[]) => void;
@@ -100,28 +133,31 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   // Cargar estado inicial de localStorage si existe
   useEffect(() => {
-    const saved = localStorage.getItem("swim_log_active_session");
-    if (saved) {
-      try {
+    try {
+      const saved = localStorage.getItem("swim_log_active_session");
+      if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.config && parsed.activeSwimmers) {
           setState(parsed);
         }
-      } catch (e) {
-        console.error("Error al cargar sesión persistida:", e);
       }
+    } catch (e) {
+      console.error("Error al cargar sesión persistida:", e);
     }
   }, []);
 
-  // Guardar en localStorage cuando cambie el estado
-  const saveState = useCallback((newState: SessionState) => {
-    setState(newState);
-    if (newState.config) {
-      localStorage.setItem("swim_log_active_session", JSON.stringify(newState));
-    } else {
-      localStorage.removeItem("swim_log_active_session");
+  // Guardar en localStorage cuando cambie el estado (efecto secundario puro)
+  useEffect(() => {
+    try {
+      if (state.config) {
+        localStorage.setItem("swim_log_active_session", JSON.stringify(state));
+      } else {
+        localStorage.removeItem("swim_log_active_session");
+      }
+    } catch (e) {
+      console.error("Error al guardar sesión en localStorage:", e);
     }
-  }, []);
+  }, [state]);
 
   const initSession = useCallback((config: SessionConfig, swimmers: string[]) => {
     const grid: Record<string, RepCell[]> = {};
@@ -131,12 +167,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       }));
     });
 
-    saveState({
+    setState({
       config,
       activeSwimmers: swimmers,
       grid,
     });
-  }, [saveState]);
+  }, []);
 
   const editCell = useCallback((swimmerName: string, repIndex: number, cellData: RepCell) => {
     setState((prev) => {
@@ -148,18 +184,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         ...cellData,
       };
 
-      const newState = {
+      return {
         ...prev,
         grid: {
           ...prev.grid,
           [swimmerName]: swimmerCells,
         },
       };
-
-      if (newState.config) {
-        localStorage.setItem("swim_log_active_session", JSON.stringify(newState));
-      }
-      return newState;
     });
   }, []);
 
@@ -205,25 +236,20 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         newGrid[swimmerKey] = swimmerCells;
       });
 
-      const newState = {
+      return {
         ...prev,
         grid: newGrid,
       };
-
-      if (newState.config) {
-        localStorage.setItem("swim_log_active_session", JSON.stringify(newState));
-      }
-      return newState;
     });
   }, []);
 
   const clearSession = useCallback(() => {
-    saveState({
+    setState({
       config: null,
       activeSwimmers: [],
       grid: {},
     });
-  }, [saveState]);
+  }, []);
 
   return (
     <SessionContext.Provider
