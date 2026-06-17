@@ -1,0 +1,265 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  animation: fadeIn var(--transition-normal);
+  max-width: 100%;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent-cyan), var(--accent-sky));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.02em;
+  margin-bottom: var(--space-xs);
+}
+
+.subtitle {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-top: -10px;
+  margin-bottom: var(--space-xs);
+}
+
+.errorBanner {
+  padding: var(--space-md);
+  background: var(--danger-bg);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-sm);
+  color: var(--danger);
+  font-size: 0.875rem;
+  font-weight: 500;
+  animation: slideUp var(--transition-fast);
+}
+
+.section {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: var(--space-lg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  transition: border-color var(--transition-fast);
+}
+
+.section:hover {
+  border-color: var(--glass-border-hover);
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-xs);
+}
+
+.sectionTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.selectAllBtn {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent-cyan);
+  padding: var(--space-xs) var(--space-sm);
+  background: rgba(6, 214, 214, 0.08);
+  border: 1px solid rgba(6, 214, 214, 0.2);
+  border-radius: var(--radius-xs);
+  transition: all var(--transition-fast);
+}
+
+.selectAllBtn:hover {
+  background: rgba(6, 214, 214, 0.15);
+  border-color: var(--accent-cyan);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.inputGroup label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.input,
+.select {
+  background: var(--bg-tertiary);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  padding: var(--space-md);
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.input:focus,
+.select:focus {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 0 2px rgba(6, 214, 214, 0.15);
+}
+
+/* Pool type toggle button group */
+.toggleGroup {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: var(--bg-tertiary);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+}
+
+.toggleBtn {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: var(--space-sm);
+  border-radius: var(--radius-xs);
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  text-align: center;
+}
+
+.toggleActive {
+  background: var(--gradient-accent);
+  color: var(--bg-primary);
+  box-shadow: 0 2px 8px rgba(6, 214, 214, 0.3);
+}
+
+/* Swimmer checklist styling */
+.swimmerGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: var(--space-sm);
+}
+
+.swimmerCard {
+  background: var(--bg-tertiary);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-sm);
+  padding: var(--space-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  transition: all var(--transition-fast);
+  text-align: left;
+}
+
+.swimmerCheckbox {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 2px solid var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.2);
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.checkIcon {
+  color: var(--bg-primary);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.swimmerName {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.swimmerSelected {
+  background: rgba(6, 214, 214, 0.06);
+  border-color: rgba(6, 214, 214, 0.3);
+  box-shadow: 0 4px 12px rgba(6, 214, 214, 0.05);
+}
+
+.swimmerSelected .swimmerCheckbox {
+  background: var(--accent-cyan);
+  border-color: var(--accent-cyan);
+}
+
+.swimmerSelected .swimmerName {
+  color: var(--accent-cyan);
+  font-weight: 600;
+}
+
+.submitBtn {
+  background: var(--gradient-accent);
+  color: var(--bg-primary);
+  font-size: 1rem;
+  font-weight: 700;
+  padding: var(--space-md);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(6, 214, 214, 0.25);
+  transition: all var(--transition-fast);
+  text-align: center;
+  margin-top: var(--space-sm);
+}
+
+.submitBtn:hover {
+  background: var(--gradient-accent-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(6, 214, 214, 0.35);
+}
+
+.submitBtn:active {
+  transform: translateY(0);
+}
+
+/* Spinner and loading state */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: var(--space-3xl) 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(6, 214, 214, 0.1);
+  border-top-color: var(--accent-cyan);
+  border-radius: var(--radius-full);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

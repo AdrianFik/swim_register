@@ -142,9 +142,111 @@ export async function processAudio(
         intensidad: "",
         material: "",
         pulso: "",
-        notas: `[Error al procesar] ${responseText}`,
+        notes: `[Error al procesar] ${responseText}`,
         piscina: "25m",
-      },
+      } as any,
     ];
   }
 }
+
+const SESSION_EXTRACTION_PROMPT = `Eres un asistente de registro de entrenamientos de natación para un grupo de nadadores. Analiza este audio y extrae los tiempos de cada nadador en formato JSON.
+
+Lista de nadadores activos y presentes en el entrenamiento (solo debes asociar tiempos a estos nombres exactos):
+{swimmersList}
+
+Fecha de referencia (hoy): {currentDate}
+
+CONFIGURACIÓN DEL BLOQUE DE ENTRENAMIENTO ACTUAL:
+- Descripción del Bloque: {blockDescription}
+- Intensidad base: {intensity}
+- Descanso/Intervalo base: {rest}
+- Piscina: {pool}
+
+REGLAS CRÍTICAS DE EXTRACCIÓN:
+1. Identifica qué nadador o nadadores se mencionan en la grabación de voz y los tiempos de repetición asociados a cada uno.
+2. Mapea nombres de forma inteligente. Si el audio dice un apodo o nombre parcial (ej: "Adri" o "Fik"), compáralo con la lista de nadadores activos y asígnalo al nombre oficial correspondiente (ej: "Adrián Fik"). Si no coincide con ninguno, ignóralo o no lo incluyes.
+3. Extrae los tiempos individuales en orden cronológico tal como se mencionan para cada nadador.
+4. REGRESA LOS TIEMPOS EXACTAMENTE COMO SE ESCUCHAN, SIN INTENTAR ADIVINAR O CORREGIR LOS TIEMPOS POR LÓGICA MATEMÁTICA DE LA DISTANCIA DEL BLOQUE. Por ejemplo, si el bloque es de 100 metros y el nadador registró un tiempo de "quince" segundos (que podría ser 15 segundos reales o un parcial de 15), debes registrar exactamente "15" o "15s" en lugar de corregirlo mentalmente a "1:15" por asumir que no se puede nadar 100m en 15s. Registra literalmente lo escuchado.
+5. Los tiempos deben ser representados como cadenas de texto en formato limpio (ej: "1:04.5", "32.5", "1:12.3", "58.9" o "15").
+6. OPCIONAL: Si para una repetición específica se menciona explícitamente un estilo de natación (ej: "crol", "espalda", "mariposa", "braza", "estilos") o material (ej: "aletas", "palas", "tabla", "pull-buoy") que sea diferente al resto o digno de mención, puedes registrarlo en los arrays opcionales "estilos" o "materiales" correspondientes a esa posición. Si no se especifican para cada repetición, no incluyas estos campos o déjalos vacíos.
+
+Estructura de cada objeto en el array JSON resultante:
+[
+  {
+    "nombre": "Nombre Oficial del Nadador",
+    "tiempos": ["tiempo1", "tiempo2", ...],
+    "estilos": ["estilo1", "estilo2", ...], // opcional (mismo largo que tiempos, ej. "mariposa")
+    "materiales": ["material1", "material2", ...] // opcional (mismo largo que tiempos, ej. "aletas")
+  }
+]
+
+Ejemplo de audio: "Adrián hizo 1:12, 15 y 1:13. Juan hizo 1:15 con aletas."
+Resultado JSON esperado:
+[
+  { 
+    "nombre": "Adrián Fik", 
+    "tiempos": ["1:12", "15", "1:13"] 
+  },
+  { 
+    "nombre": "Juan Pérez", 
+    "tiempos": ["1:15"],
+    "materiales": ["aletas"]
+  }
+]
+
+IMPORTANTE:
+- Responde ÚNICAMENTE con el Array JSON (ej: [{...}, {...}]), sin markdown, sin backticks, sin explicaciones.
+- Si no se escucha a ningún nadador de la lista, devuelve un array vacío [].
+- Responde siempre en español.`;
+
+export async function processSessionAudio(
+  audioBuffer: Buffer,
+  mimeType: string,
+  swimmersList: string[],
+  currentDate: string,
+  config: {
+    blockDescription: string;
+    intensity: string;
+    rest: string;
+    pool: string;
+  }
+): Promise<any[]> {
+  const ai = getGenAI();
+  const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" }); // Use gemini-2.5-flash as the standard/updated model
+
+  const prompt = SESSION_EXTRACTION_PROMPT
+    .replace("{swimmersList}", swimmersList.join(", "))
+    .replace("{currentDate}", currentDate)
+    .replace("{blockDescription}", config.blockDescription)
+    .replace("{intensity}", config.intensity)
+    .replace("{rest}", config.rest)
+    .replace("{pool}", config.pool);
+
+  const audioBase64 = audioBuffer.toString("base64");
+
+  const result = await model.generateContent([
+    {
+      inlineData: {
+        mimeType,
+        data: audioBase64,
+      },
+    },
+    { text: prompt },
+  ]);
+
+  const responseText = result.response.text().trim();
+
+  let jsonStr = responseText;
+  if (jsonStr.startsWith("```")) {
+    jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+  }
+
+  try {
+    const parsed = JSON.parse(jsonStr);
+    return Array.isArray(parsed) ? parsed : [parsed];
+  } catch (err) {
+    console.error("Error parsing Gemini session result:", responseText, err);
+    return [];
+  }
+}
+
